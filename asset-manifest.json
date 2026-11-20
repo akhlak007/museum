@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "id": "mona-lisa-image",
+      "type": "artwork image",
+      "source": "https://commons.wikimedia.org/wiki/File:Leonardo_da_Vinci_-_Mona_Lisa.jpg",
+      "license": "Public domain / free of known copyright restrictions on source page",
+      "localPath": "public/artwork/mona-lisa.jpg",
+      "sha256": "524755EDE452F63C9CC586B4ADD9A4866B493F1EBD5390173362892EB053A575",
+      "implementationStatus": "implemented",
+      "verificationStatus": "official artwork identity verified via Louvre collection record"
+    },
+    {
+      "id": "wedding-at-cana-image",
+      "type": "artwork image",
+      "source": "https://commons.wikimedia.org/wiki/File:Paolo_Veronese_008.jpg",
+      "license": "Public Domain Mark; Yorck Project reproduction compilation also licensed GFDL on source page",
+      "localPath": "public/artwork/wedding-at-cana.jpg",
+      "sha256": "F48D99E5381EC7FE61865EF65D16A50C781445DF12F6E3A9C60C93BB53BA4663",
+      "implementationStatus": "implemented",
+      "verificationStatus": "identity and Room 711 placement verified via Louvre; source license verified 2026-11-20"
+    },
+    {
+      "id": "room-711-modular-geometry",
+      "type": "3d-model",
+      "source": "Authored in Three.js from public architectural references",
+      "license": "Project original",
+      "implementationStatus": "in-progress",
+      "verificationStatus": "recognizable approximation",
+      "notes": "Procedural runtime mesh; security resource placements are fictional. Production Blender/GLTF replacement remains planned."
+    },
+    {
+      "id": "room-711-materials",
+      "type": "material",
+      "source": "Procedurally authored color, roughness and geometry patterns",
+      "license": "Project original",
+      "implementationStatus": "in-progress",
+      "verificationStatus": "official color/floor descriptions referenced; visual QA captured"
+    },
+    {
+      "id": "security-agent-procedural",
+      "type": "animated-3d-model",
+      "source": "Project-authored articulated Three.js geometry",
+      "license": "Project original",
+      "implementationStatus": "implemented",
+      "verificationStatus": "walk/run animation and collision covered by browser mission test",
+      "notes": "Functional vertical-slice asset; production rigged GLTF character remains planned."
+    },
+    {
+      "id": "security-agent-production-gltf",
+      "type": "rigged-3d-model",
+      "source": "To be authored or licensed",
+      "license": "TBD before integration",
+      "implementationStatus": "planned",
+      "verificationStatus": "not started"
+    },
+    {
+      "id": "guardian-ui",
+      "type": "ui",
+      "source": "Authored from user-provided visual direction",
+      "license": "Project original",
+      "implementationStatus": "implemented",
+      "verificationStatus": "core panels exercised by Chromium end-to-end test"
+    },
+    {
+      "id": "user-concept-sheets-01-06",
+      "type": "visual-reference",
+      "source": "Six user-provided Louvre Guardian concept sheets",
+      "license": "User-provided reference; redistribution rights not asserted",
+      "implementationStatus": "reference-only",
+      "verificationStatus": "not shipped as flattened gameplay assets"
+    }
+  ]
+}
