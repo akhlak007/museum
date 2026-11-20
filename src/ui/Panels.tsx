@@ -156,6 +156,51 @@ export function ReportPanel() {
   return <PanelShell title="Mission Report — Operation Quiet Gallery" onClose={() => setPanel(null)}><div className="report-grade"><span>GRADE</span><strong>{score >= 900 ? 'A' : score >= 700 ? 'B' : 'C'}</strong><b>{score.toLocaleString()} points</b></div><div className="report-row"><span>Protocol completed</span><b>6 / 6</b></div><div className="report-row"><span>Visitor safety</span><b>Protected</b></div><div className="report-row"><span>Artifact secured</span><b>Safe</b></div><div className="report-row"><span>Persistence</span><b>{cloudStatus === 'connected' ? 'Saved to Supabase' : cloudStatus === 'saving' ? 'Saving…' : cloudStatus === 'error' ? 'Save failed' : 'Demo memory only'}</b></div><button className="primary-button" onClick={() => setPanel(null)}>Continue patrol</button></PanelShell>;
 }
 
+export function HeistReportPanel() {
+  const setPanel = useGameStore((state) => state.setPanel);
+  const heistState = useGameStore((state) => state.heistState);
+  const score = useGameStore((state) => state.score);
+  const cloudStatus = useGameStore((state) => state.cloudStatus);
+
+  const cluesFound = heistState?.clues.filter(c => c.discovered).length ?? 0;
+  const isBreached = heistState?.stage === 'breached';
+
+  return (
+    <PanelShell title="Investigation Report — The Decoy Heist" onClose={() => setPanel(null)}>
+      <div className="report-grade">
+        <span>OUTCOME</span>
+        <strong style={{ color: isBreached ? '#e45040' : '#45c870', fontSize: '2.4rem' }}>
+          {isBreached ? 'PERIMETER BREACH' : 'HEIST FOILED'}
+        </strong>
+        <b>{score.toLocaleString()} points</b>
+      </div>
+      <div className="report-row">
+        <span>Target Masterpiece</span>
+        <b>La Belle Ferronnière (Leonardo da Vinci)</b>
+      </div>
+      <div className="report-row">
+        <span>Status</span>
+        <b>{isBreached ? 'Perimeter compromised (Suspect fled)' : 'Recovered & Secured at Level 0'}</b>
+      </div>
+      <div className="report-row">
+        <span>Forensic Clues Discovered</span>
+        <b>{cluesFound} / 4 clues</b>
+      </div>
+      <div className="report-row">
+        <span>CCTV Channels Examined</span>
+        <b>{heistState?.cctvReviewedRooms.length ?? 0} / 4 cameras</b>
+      </div>
+      <div className="report-row">
+        <span>Persistence</span>
+        <b>{cloudStatus === 'connected' ? 'Saved to Supabase' : cloudStatus === 'saving' ? 'Saving…' : 'Demo memory'}</b>
+      </div>
+      <button className="primary-button" onClick={() => setPanel(null)}>
+        Dismiss Report & Return
+      </button>
+    </PanelShell>
+  );
+}
+
 function VerificationClock({ detectedAt }: { detectedAt: string }) {
   const deadline = Date.parse(detectedAt) + PRIORITY_VERIFICATION_SECONDS * 1000;
   const [now, setNow] = useState(Date.now);

@@ -12,6 +12,7 @@ interface GameCallbacks {
   onGuardPosition(position: PlayerMapPosition): void;
   onFieldPosition(position: PlayerMapPosition, progress: number, inRange: boolean): void;
   onFieldContact(): void;
+  onHeistProximity?(nearClue: string | null, nearSuspect: boolean): void;
 }
 
 const FIXED_STEP = 1 / 60;
@@ -47,6 +48,9 @@ export class GameEngine {
   private viewMode: 'follow' | 'cctv' | 'grande-cctv' = 'follow';
   private accumulator = 0;
   private actors;
+  private nightMode = false;
+  private flashlight = new THREE.SpotLight(0xfff5dd, 3.8, 32, Math.PI / 6.5, 0.4, 1.2);
+  private flashlightTarget = new THREE.Object3D();
 
   constructor(private container: HTMLElement, private callbacks: GameCallbacks) {
     const canvas = document.createElement('canvas');
@@ -68,6 +72,14 @@ export class GameEngine {
     this.player.position.set(0, 0, 4);
     this.player.rotation.y = this.yaw;
     this.scene.add(this.player);
+
+    this.flashlight.castShadow = true;
+    this.flashlight.shadow.mapSize.set(1024, 1024);
+    this.flashlight.visible = false;
+    this.scene.add(this.flashlight);
+    this.scene.add(this.flashlightTarget);
+    this.flashlight.target = this.flashlightTarget;
+
     this.bindEvents();
     this.resize();
     this.loop(performance.now());
@@ -212,6 +224,28 @@ export class GameEngine {
       Math.hypot(this.player.position.x - point.x, this.player.position.z - point.z) < 3.4)?.title ?? null;
     const nearIncident = this.incidentTriggered && this.player.position.distanceTo(this.actors.incidentPosition) < 3.6;
     this.callbacks.onPosition(worldToMap(this.player.position.x, this.player.position.z, this.player.rotation.y), nearArtwork, nearIncident);
+
+    if (this.nightMode) {
+      this.flashlight.position.copy(this.player.position).add(new THREE.Vector3(0, 1.4, 0));
+      const lookDir = new THREE.Vector3(
+        -Math.sin(this.followYaw),
+        -Math.sin(this.cameraPitch) * 0.4,
+        -Math.cos(this.followYaw)
+      );
+      this.flashlightTarget.position.copy(this.player.position).add(lookDir.multiplyScalar(8));
+
+      const px = this.player.position.x;
+      const pz = this.player.position.z;
+      const clues = [
+        { id: 'clue-711-decoy', x: 4.1, z: -13.45 },
+        { id: 'clue-710-frame', x: 36, z: 1.35 },
+        { id: 'clue-708-blindspot', x: 65, z: 7.4 },
+        { id: 'clue-703-stairs', x: 88, z: 7.4 },
+      ];
+      const nearClue = clues.find(c => Math.hypot(px - c.x, pz - c.z) < 3.2)?.id ?? null;
+      const nearSuspect = Math.hypot(px - 104, pz - 8) < 3.8;
+      this.callbacks.onHeistProximity?.(nearClue, nearSuspect);
+    }
   }
 
   private updateFieldEncounter(delta: number) {
@@ -297,6 +331,36 @@ export class GameEngine {
     const sensorMaterial = this.actors.sensor.material as THREE.MeshStandardMaterial;
     sensorMaterial.emissive.set(sensorOnline ? '#3a8f55' : '#8b1e24');
     sensorMaterial.emissiveIntensity = sensorOnline ? 0.45 : 0.08;
+  }
+
+  setNightMode(isNight: boolean) {
+    this.nightMode = isNight;
+    this.flashlight.visible = isNight;
+    if (isNight) {
+      this.actors.hemiLight.intensity = 0.08;
+      this.actors.keyLight.intensity = 0.05;
+      this.actors.ceilingLights.forEach((l) => { l.intensity = 1.2; });
+      this.scene.fog = new THREE.Fog('#040a14', 16, 42);
+      this.scene.background = new THREE.Color('#040a14');
+      this.actors.galleryVisitors.forEach((v) => { v.person.visible = false; });
+      this.actors.suspect.visible = true;
+      this.actors.ferronnierePainting.visible = false;
+      this.actors.emptyFrameBacking.visible = true;
+    } else {
+      this.actors.hemiLight.intensity = 1.65;
+      this.actors.keyLight.intensity = 2.3;
+      this.actors.ceilingLights.forEach((l) => { l.intensity = 18; });
+      this.scene.fog = new THREE.Fog('#101a27', 32, 66);
+      this.scene.background = new THREE.Color('#101a27');
+      this.actors.galleryVisitors.forEach((v) => { v.person.visible = true; });
+      this.actors.suspect.visible = false;
+      this.actors.ferronnierePainting.visible = true;
+      this.actors.emptyFrameBacking.visible = false;
+    }
+  }
+
+  setFlashlight(enabled: boolean) {
+    this.flashlight.intensity = enabled ? 3.8 : 0;
   }
 
   dispose() {

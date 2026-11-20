@@ -217,6 +217,61 @@ dt { color: #8f9da3; } dd { margin: 0; }
 .secondary-button { border: 1px solid #8a98a0; background: #1a2934; color: white; padding: .7rem 1rem; }
 .pause-actions { display: grid; gap: .8rem; }
 
+/* Night Heist & CCTV Styles */
+.night-heist-active .hud-topbar { background: linear-gradient(#050c16fa, #040810ee); border-bottom-color: rgba(100,165,225,.4); }
+.heist-objectives { width: 320px; border-color: #3b5978; background: #07101de8; }
+.heist-timer-bar { display: flex; justify-content: space-between; align-items: center; padding-bottom: .45rem; border-bottom: 1px solid #25384d; margin-bottom: .5rem; }
+.heist-timer-bar strong { font-size: 1.15rem; font-family: monospace; letter-spacing: .08em; }
+.heist-stage-tag { font-size: .68rem; color: #8bb5de; margin: .3rem 0 .6rem; text-transform: uppercase; }
+.heist-stage-tag b { color: #f5f1e8; background: #1a334d; padding: .15rem .4rem; border-radius: 2px; }
+.heist-submit-btn { width: 100%; margin-top: .8rem; padding: .55rem; font-size: .8rem; background: linear-gradient(#3a6c98, #1c3d5a); border-color: #79aee0; color: #fff; }
+
+.clue-prompt { border-color: #4da3ea; background: #071526f2; }
+.suspect-prompt { border-color: #e54b38; background: #260a0af2; animation: pulse 1.1s infinite; }
+.suspect-prompt span strong { color: #ff9184; letter-spacing: .08em; }
+
+.cctv-modal { width: min(1080px, 98vw); background: #08111cf8; border-color: #3f6b96; }
+.cctv-body { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; margin-top: 1rem; min-height: 480px; }
+.cctv-nav { display: flex; flex-direction: column; gap: .5rem; background: #060e17; padding: .75rem; border: 1px solid #23374b; }
+.cctv-nav-title { font-size: .7rem; text-transform: uppercase; letter-spacing: .12em; color: #82a8cc; margin-bottom: .25rem; }
+.cctv-tab { text-align: left; padding: .65rem .75rem; background: #0c1824; border: 1px solid #1e354a; color: #c6d6e6; cursor: pointer; display: flex; flex-direction: column; gap: .25rem; transition: background .15s, border-color .15s; }
+.cctv-tab:hover { background: #142538; border-color: #3b5f82; }
+.cctv-tab.active { background: #17324d; border-color: #5ea4e8; color: #fff; box-shadow: 0 0 12px rgba(94,164,232,.18); }
+.cctv-tab.reviewed { border-left: 3px solid #45c870; }
+.cctv-tab-head { display: flex; justify-content: space-between; align-items: center; }
+.cctv-tab-head strong { font-size: .85rem; letter-spacing: .04em; }
+.cctv-status-badge { font-size: .6rem; padding: .1rem .3rem; border-radius: 2px; background: #132435; color: #9bbad9; font-weight: 700; }
+.cctv-status-badge.alarm { background: #5c1815; color: #ff9d94; }
+.cctv-tab-sub { font-size: .72rem; color: #8aa3bb; }
+
+.cctv-viewport-column { display: flex; flex-direction: column; gap: .8rem; }
+.cctv-screen { position: relative; background: #02060b; border: 1px solid #324e6b; min-height: 330px; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+.cctv-scanlines { position: absolute; inset: 0; pointer-events: none; z-index: 3; background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(100,165,225,.04) 2px 3px); }
+.cctv-hud-header { position: relative; z-index: 4; display: flex; justify-content: space-between; align-items: center; padding: .55rem .85rem; background: #050d17e6; border-bottom: 1px solid #1a2f42; font-size: .72rem; color: #b6d2ed; letter-spacing: .08em; }
+.cctv-hud-footer { position: relative; z-index: 4; padding: .55rem .85rem; background: #050d17e6; border-top: 1px solid #1a2f42; }
+
+.cctv-view-visual { flex: 1; display: grid; place-items: center; position: relative; min-height: 220px; }
+.cctv-feed-placeholder { width: 100%; height: 100%; display: grid; place-items: center; padding: 1.5rem; text-align: center; }
+.cctv-vector-frame { width: 100%; max-width: 580px; border: 1px dashed rgba(100,170,230,.35); padding: 1.5rem; background: rgba(5,15,26,.65); position: relative; }
+.cctv-cam-title { font-family: Georgia, serif; font-size: 1.15rem; color: #dceaf7; margin: 0 0 .75rem; }
+.event-badge { display: inline-block; font-size: .65rem; font-weight: 800; background: #7c221e; color: #ffe4e0; padding: .2rem .5rem; border-radius: 2px; margin-bottom: .5rem; letter-spacing: .08em; }
+.live-badge { display: inline-block; font-size: .65rem; font-weight: 800; background: #164627; color: #d0fae0; padding: .2rem .5rem; border-radius: 2px; margin-bottom: .5rem; letter-spacing: .08em; }
+.cctv-event-playback p, .cctv-live-feed p { font-size: .82rem; color: #c4d7e8; line-height: 1.5; margin: 0; }
+
+.cctv-scrubber { display: flex; gap: .6rem; }
+.scrub-btn { border: 1px solid #28445e; background: #0e1e2d; color: #b8cee2; padding: .4rem .75rem; font-size: .72rem; cursor: pointer; }
+.scrub-btn.active { border-color: #64a6e8; background: #1d3b58; color: #fff; font-weight: 700; }
+
+.cctv-intel-card { background: #08131f; border: 1px solid #28435d; border-left: 4px solid #5ca0e5; padding: .75rem 1rem; }
+.intel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; }
+.clue-tag { font-size: .62rem; font-weight: 800; letter-spacing: .12em; color: #5ca0e5; }
+.clue-text { margin: 0; font-size: .82rem; color: #d3e2ef; line-height: 1.45; }
+
+@media (max-width: 760px) {
+  .cctv-body { grid-template-columns: 1fr; }
+  .heist-objectives { width: calc(100% - 24px); }
+}
+
 @media (max-width: 760px) {
   .hud-location { display: none; }
   .objectives { width: 240px; }

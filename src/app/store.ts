@@ -1,20 +1,31 @@
 import { create } from 'zustand';
 import { advanceIncident, calculateMissionScore, createBarrierIncident } from '../domain/incidentMachine';
-import type { ArtifactStatus, Incident, PlayerMapPosition, Role } from '../domain/types';
+import {
+  createInitialHeistState,
+  discoverHeistClue,
+  interceptSuspect,
+  resolveHeist,
+  reviewHeistCCTV,
+  tickHeistTimer,
+} from '../domain/heistMachine';
+import type { ArtifactStatus, GameMode, HeistState, Incident, PlayerMapPosition, Role } from '../domain/types';
 import { persistence } from '../data/persistence';
 import { ROOM_711_MARKERS, worldToMap } from '../world/mapRegistry';
 import type { InspectableArtwork } from '../world/galleries';
+import { playSecurityCue } from '../engine/audio';
 
-export type Panel = 'dashboard' | 'map' | 'radio' | 'artifact' | 'camera' | 'grande-camera' | 'pause' | 'report' | null;
+export type Panel = 'dashboard' | 'map' | 'radio' | 'artifact' | 'camera' | 'grande-camera' | 'cctv' | 'heist-report' | 'pause' | 'report' | null;
 
 interface GameState {
   screen: 'login' | 'menu' | 'game';
   role: Role | null;
   email: string;
+  gameMode: GameMode;
   panel: Panel;
   loading: boolean;
   error: string | null;
   incident: Incident | null;
+  heistState: HeistState | null;
   artifactStatus: ArtifactStatus;
   player: PlayerMapPosition;
   nearArtwork: InspectableArtwork | null;
@@ -36,6 +47,13 @@ interface GameState {
   score: number;
   signIn(email: string, password: string): Promise<void>;
   startGame(priorityShift?: boolean): void;
+  startHeistGame(): void;
+  toggleFlashlight(): void;
+  discoverClue(id: string): void;
+  reviewCCTV(roomId: string): void;
+  tickHeist(deltaSeconds: number): void;
+  interceptSuspect(): void;
+  resolveHeistGame(): Promise<void>;
   setPanel(panel: Panel): void;
   setPlayer(player: PlayerMapPosition, nearArtwork: InspectableArtwork | null, nearIncident: boolean): void;
   detectIncident(): void;
@@ -59,10 +77,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   screen: 'login',
   role: null,
   email: '',
+  gameMode: 'patrol',
   panel: null,
   loading: false,
   error: null,
   incident: null,
+  heistState: null,
   artifactStatus: 'safe',
   player: worldToMap(0, 4, Math.PI),
   nearArtwork: null,
@@ -90,7 +110,108 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({ loading: false, error: error instanceof Error ? error.message : 'Unable to sign in' });
     }
   },
-  startGame: (priorityShift = false) => set({ screen: 'game', panel: null, priorityShift }),
+  startGame: (priorityShift = false) => set({
+    screen: 'game',
+    gameMode: priorityShift ? 'priority' : 'patrol',
+    panel: null,
+    priorityShift,
+    heistState: null,
+  }),
+  startHeistGame: () => {
+    const heistState = createInitialHeistState();
+    set({
+      screen: 'game',
+      gameMode: 'night-heist',
+      panel: null,
+      priorityShift: false,
+      heistState,
+      artifactStatus: 'under_threat',
+      incident: {
+        id: `HEIST-${Date.now()}`,
+        title: 'After-Hours Intrusion & Decoy Alarm',
+        description: 'Perimeter alarm tripped at Salle des États (Room 711) after hours. Security investigation initiated.',
+        roomId: '711',
+        severity: 'high',
+        stage: 'detected',
+        detectedAt: new Date().toISOString(),
+        actions: [{ stage: 'detected', at: new Date().toISOString(), note: 'S-711-A trip registered by central monitoring.' }],
+      },
+    });
+  },
+  toggleFlashlight: () => {
+    const { heistState } = get();
+    if (!heistState) return;
+    playSecurityCue('flashlight');
+    set({ heistState: { ...heistState, flashlightOn: !heistState.flashlightOn } });
+  },
+  discoverClue: (clueId: string) => {
+    const { heistState } = get();
+    if (!heistState) return;
+    const next = discoverHeistClue(heistState, clueId);
+    playSecurityCue('clue');
+    set({
+      heistState: next,
+      artifactStatus: next.emptyFrameDiscovered ? 'missing' : 'under_threat',
+    });
+  },
+  reviewCCTV: (roomId: string) => {
+    const { heistState } = get();
+    if (!heistState) return;
+    playSecurityCue('cctv');
+    const next = reviewHeistCCTV(heistState, roomId);
+    set({ heistState: next });
+  },
+  tickHeist: (deltaSeconds: number) => {
+    const { heistState } = get();
+    if (!heistState || heistState.stage === 'resolved' || heistState.stage === 'breached') return;
+    const next = tickHeistTimer(heistState, deltaSeconds);
+    set({ heistState: next });
+    if (next.stage === 'breached') {
+      playSecurityCue('incident');
+    }
+  },
+  interceptSuspect: () => {
+    const { heistState } = get();
+    if (!heistState) return;
+    playSecurityCue('arrival');
+    const next = interceptSuspect(heistState);
+    set({
+      heistState: next,
+      guardStatus: 'on-scene',
+      artifactStatus: 'recovered',
+    });
+  },
+  async resolveHeistGame() {
+    const { heistState } = get();
+    if (!heistState) return;
+    const next = resolveHeist(heistState);
+    set({
+      heistState: next,
+      score: next.score,
+      panel: 'heist-report',
+      cloudStatus: persistence.mode === 'supabase' ? 'saving' : 'demo',
+    });
+    try {
+      const summaryIncident: Incident = {
+        id: `HEIST-REP-${Date.now()}`,
+        title: next.stage === 'breached' ? 'Perimeter Breach: Art Theft Unresolved' : 'Heist Foiled: Masterpiece Recovered',
+        description: `After-hours decoy heist in Denon. Target: La Belle Ferronnière. Clues: ${next.clues.filter(c => c.discovered).length}/4. Status: ${next.stage}.`,
+        roomId: '710',
+        severity: 'high',
+        stage: 'resolved',
+        detectedAt: new Date(Date.now() - 180000).toISOString(),
+        actions: next.clues.filter(c => c.discovered).map((c, i) => ({
+          stage: 'verified',
+          at: new Date(Date.now() - (180 - i * 30) * 1000).toISOString(),
+          note: `Forensic clue located: ${c.title}`,
+        })),
+      };
+      await persistence.saveMissionReport(summaryIncident, next.score);
+      set({ cloudStatus: persistence.mode === 'supabase' ? 'connected' : 'demo' });
+    } catch {
+      set({ cloudStatus: 'error' });
+    }
+  },
   setPanel: (panel) => {
     const current = get();
     if (current.panel === 'report' && panel === null && current.pendingIncident) {

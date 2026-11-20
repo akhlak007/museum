@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../app/store';
 import { GameEngine } from '../engine/GameEngine';
-import { ArtifactPanel, CameraFeedPanel, DashboardPanel, FullMapPanel, IncidentPanel, PausePanel, RadioPanel, ReportPanel } from './Panels';
+import {
+  ArtifactPanel,
+  CameraFeedPanel,
+  DashboardPanel,
+  FullMapPanel,
+  HeistReportPanel,
+  IncidentPanel,
+  PausePanel,
+  RadioPanel,
+  ReportPanel,
+} from './Panels';
+import { CCTVPanel } from './CCTVPanel';
 import { Minimap } from './Minimap';
 import { playSecurityCue } from '../engine/audio';
 import { canDetectSecurityEvent } from '../domain/detectionPolicy';
@@ -10,27 +21,40 @@ import { galleryById } from '../world/galleries';
 export function GameScreen() {
   const mountRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
-  const galleryId = useGameStore(state => state.player.galleryId);
+  const gameMode = useGameStore((state) => state.gameMode);
+  const heistState = useGameStore((state) => state.heistState);
+  const toggleFlashlight = useGameStore((state) => state.toggleFlashlight);
+  const discoverClue = useGameStore((state) => state.discoverClue);
+  const interceptSuspect = useGameStore((state) => state.interceptSuspect);
+  const resolveHeistGame = useGameStore((state) => state.resolveHeistGame);
+  const tickHeist = useGameStore((state) => state.tickHeist);
+
+  const galleryId = useGameStore((state) => state.player.galleryId);
   const gallery = galleryById(galleryId);
-  const explored = useGameStore(state => state.explored);
-  const inspections = useGameStore(state => state.inspections);
+  const explored = useGameStore((state) => state.explored);
+  const inspections = useGameStore((state) => state.inspections);
   const panel = useGameStore((state) => state.panel);
   const incident = useGameStore((state) => state.incident);
-  const priorityShift = useGameStore(state => state.priorityShift);
-  const raiseGrandeAlert = useGameStore(state => state.raiseGrandeAlert);
+  const priorityShift = useGameStore((state) => state.priorityShift);
+  const raiseGrandeAlert = useGameStore((state) => state.raiseGrandeAlert);
   const nearArtwork = useGameStore((state) => state.nearArtwork);
   const cloudStatus = useGameStore((state) => state.cloudStatus);
   const error = useGameStore((state) => state.error);
   const cameraStatus = useGameStore((state) => state.cameraStatus);
-  const grandeCamera = useGameStore(state => state.grandeCamera);
-  const grandeSensor = useGameStore(state => state.grandeSensor);
+  const grandeCamera = useGameStore((state) => state.grandeCamera);
+  const grandeSensor = useGameStore((state) => state.grandeSensor);
   const sensorStatus = useGameStore((state) => state.sensorStatus);
   const [graphicsUnavailable, setGraphicsUnavailable] = useState(false);
+
+  const [nearClueId, setNearClueId] = useState<string | null>(null);
+  const [nearSuspect, setNearSuspect] = useState(false);
+
   const routeChecks = [
-    { label: 'Inspect a painting in the Square Room', done: inspections.some(title => title === 'Virgin and Child Enthroned with Six Angels' || title === 'Saint Francis Receiving the Stigmata') },
+    { label: 'Inspect a painting in the Square Room', done: inspections.some((title) => title === 'Virgin and Child Enthroned with Six Angels' || title === 'Saint Francis Receiving the Stigmata') },
     { label: 'Inspect Winged Victory at the top of the stairs', done: inspections.includes('Winged Victory of Samothrace') },
     { label: 'Check the candelabrum on Level 0', done: explored.includes('daru-lower') && inspections.includes('Roman Marble Candelabrum') },
   ];
+
   const passageHint = galleryId === '711' ? 'Grand Gallery · East passage'
     : galleryId === '710' ? 'Square Room · Far end of the Grand Gallery'
       : galleryId === '708' ? 'Daru Staircase · Far door'
@@ -39,6 +63,7 @@ export function GameScreen() {
 
   const readyForPriorityCall = priorityShift && incident?.roomId === '711' &&
     incident.stage === 'resolved' && panel !== 'report' && panel !== 'pause' && grandeSensor === 'online';
+
   useEffect(() => {
     if (!readyForPriorityCall) return;
     const call = window.setTimeout(() => {
@@ -47,6 +72,15 @@ export function GameScreen() {
     }, 12_000);
     return () => window.clearTimeout(call);
   }, [readyForPriorityCall, raiseGrandeAlert]);
+
+  // Night heist escape timer countdown
+  useEffect(() => {
+    if (gameMode !== 'night-heist' || !heistState || heistState.stage === 'resolved' || heistState.stage === 'breached') return;
+    const timer = window.setInterval(() => {
+      tickHeist(1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [gameMode, heistState?.stage, tickHeist]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -75,6 +109,10 @@ export function GameScreen() {
         useGameStore.getState().completeFieldContact();
         playSecurityCue('arrival');
       },
+      onHeistProximity(clueId, isNearSuspect) {
+        setNearClueId(clueId);
+        setNearSuspect(isNearSuspect);
+      },
     };
     let engine: GameEngine;
     try {
@@ -88,6 +126,16 @@ export function GameScreen() {
     engineRef.current = engine;
     return () => engine.dispose();
   }, []);
+
+  useEffect(() => {
+    engineRef.current?.setNightMode(gameMode === 'night-heist');
+  }, [gameMode]);
+
+  useEffect(() => {
+    if (gameMode === 'night-heist' && heistState) {
+      engineRef.current?.setFlashlight(heistState.flashlightOn);
+    }
+  }, [gameMode, heistState?.flashlightOn]);
 
   useEffect(() => {
     if (incident?.stage === 'detected') engineRef.current?.setIncidentRoom(incident.roomId);
@@ -119,15 +167,35 @@ export function GameScreen() {
       }
       if (event.key === 'Tab') { event.preventDefault(); toggle('dashboard'); }
       if (event.key.toLowerCase() === 'r') toggle('radio');
+      if (event.key.toLowerCase() === 'c') toggle('cctv');
+      if (event.key.toLowerCase() === 'f') {
+        if (state.gameMode === 'night-heist') state.toggleFlashlight();
+      }
       if (event.key === 'Escape') toggle('pause');
-      if (event.key.toLowerCase() === 'e' && state.nearArtwork) {
-        if (state.panel !== 'artifact') state.logArtifactInspection();
-        toggle('artifact');
+      if (event.key.toLowerCase() === 'e') {
+        if (state.gameMode === 'night-heist') {
+          if (nearClueId) {
+            state.discoverClue(nearClueId);
+            return;
+          }
+          if (nearSuspect && state.heistState && state.heistState.stage !== 'intercepted' && state.heistState.stage !== 'resolved') {
+            state.interceptSuspect();
+            return;
+          }
+          if (state.heistState && (state.heistState.stage === 'intercepted' || state.heistState.stage === 'breached')) {
+            void state.resolveHeistGame();
+            return;
+          }
+        }
+        if (state.nearArtwork) {
+          if (state.panel !== 'artifact') state.logArtifactInspection();
+          toggle('artifact');
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [graphicsUnavailable]);
+  }, [graphicsUnavailable, nearClueId, nearSuspect]);
 
   if (graphicsUnavailable) {
     return (
@@ -142,26 +210,111 @@ export function GameScreen() {
     );
   }
 
+  const activeClue = heistState?.clues.find((c) => c.id === nearClueId);
+  const minutes = heistState ? Math.floor(heistState.escapeTimerSeconds / 60) : 0;
+  const seconds = heistState ? (heistState.escapeTimerSeconds % 60).toString().padStart(2, '0') : '00';
+
   return (
-    <main className="game-shell">
+    <main className={`game-shell ${gameMode === 'night-heist' ? 'night-heist-active' : ''}`}>
       <div className="game-canvas" ref={mountRef} />
       <header className="hud-topbar">
-        <div className="hud-brand"><span className="mini-mark">△</span><div><strong>LOUVRE GUARDIAN</strong><small>SECURITY OPERATIONS</small></div></div>
-        <div className="hud-location"><span>{gallery?.wing.toUpperCase()} WING</span><strong>{galleryId === 'daru-lower' ? 'LOWER LANDING' : `ROOM ${galleryId}`} · LEVEL {gallery?.floor}</strong></div>
-        <div className={`sync-state ${cloudStatus}`}><span className="status-dot" />{cloudStatus === 'connected' ? 'Cloud connected' : cloudStatus === 'demo' ? 'Demo · not saved' : 'Sync failed'}</div>
+        <div className="hud-brand">
+          <span className="mini-mark">{gameMode === 'night-heist' ? '🌙' : '△'}</span>
+          <div>
+            <strong>LOUVRE GUARDIAN</strong>
+            <small>{gameMode === 'night-heist' ? 'AFTER-HOURS INVESTIGATION' : 'SECURITY OPERATIONS'}</small>
+          </div>
+        </div>
+        <div className="hud-location">
+          <span>{gallery?.wing.toUpperCase()} WING</span>
+          <strong>{galleryId === 'daru-lower' ? 'LOWER LANDING' : `ROOM ${galleryId}`} · LEVEL {gallery?.floor}</strong>
+        </div>
+        <div className={`sync-state ${cloudStatus}`}>
+          <span className="status-dot" />
+          {cloudStatus === 'connected' ? 'Cloud connected' : cloudStatus === 'demo' ? 'Demo · not saved' : 'Sync failed'}
+        </div>
       </header>
 
-      <section className="objectives">
-        <div><span>MISSION OBJECTIVES</span><b>{priorityShift ? `${routeChecks.filter(item => item.done).length} / 3 route checks` : incident?.stage === 'resolved' ? '3 / 3' : incident ? '1 / 3' : '0 / 3'}</b></div>
-        {priorityShift ? routeChecks.map(item => <p key={item.label} className={item.done ? 'done' : ''}>{item.label}</p>) : <p className={incident ? 'done' : ''}>Patrol the State Room</p>}
-        <p className={incident?.stage === 'resolved' ? 'done' : ''}>Resolve the visitor-rule incident</p>
-        <p className={incident?.stage === 'resolved' ? 'done' : ''}>Submit the security report</p>
-      </section>
+      {gameMode === 'night-heist' && heistState ? (
+        <section className="objectives heist-objectives">
+          <div className="heist-timer-bar">
+            <span>PERIMETER BREACH TIMER</span>
+            <strong className={heistState.escapeTimerSeconds < 45 ? 'warning-text' : 'safe-text'}>
+              {minutes}:{seconds}
+            </strong>
+          </div>
+          <p className="heist-stage-tag">
+            STATUS: <b>{heistState.stage.toUpperCase().replace('-', ' ')}</b>
+          </p>
+          <p className={heistState.clues.find((c) => c.id === 'clue-711-decoy')?.discovered ? 'done' : ''}>
+            Investigate decoy alarm in Room 711
+          </p>
+          <p className={heistState.emptyFrameDiscovered ? 'done' : ''}>
+            Check missing masterpiece in Room 710
+          </p>
+          <p className={heistState.cctvReviewedRooms.length >= 2 ? 'done' : ''}>
+            Review CCTV surveillance ({heistState.cctvReviewedRooms.length}/4)
+          </p>
+          <p className={heistState.stage === 'intercepted' || heistState.stage === 'resolved' ? 'done' : ''}>
+            Intercept thief at Daru landing (Level 0)
+          </p>
+          {(heistState.stage === 'intercepted' || heistState.stage === 'breached') && (
+            <button className="primary-button heist-submit-btn" onClick={() => void resolveHeistGame()}>
+              File Heist Report
+            </button>
+          )}
+        </section>
+      ) : (
+        <section className="objectives">
+          <div>
+            <span>MISSION OBJECTIVES</span>
+            <b>{priorityShift ? `${routeChecks.filter((item) => item.done).length} / 3 route checks` : incident?.stage === 'resolved' ? '3 / 3' : incident ? '1 / 3' : '0 / 3'}</b>
+          </div>
+          {priorityShift ? routeChecks.map((item) => <p key={item.label} className={item.done ? 'done' : ''}>{item.label}</p>) : <p className={incident ? 'done' : ''}>Patrol the State Room</p>}
+          <p className={incident?.stage === 'resolved' ? 'done' : ''}>Resolve the visitor-rule incident</p>
+          <p className={incident?.stage === 'resolved' ? 'done' : ''}>Submit the security report</p>
+        </section>
+      )}
 
-      <IncidentPanel />
-      {nearArtwork && !panel && <div className="interaction-prompt"><kbd>E</kbd><span>Inspect {nearArtwork}</span></div>}
+      {gameMode !== 'night-heist' && <IncidentPanel />}
+
+      {/* Clue and Suspect interaction prompts */}
+      {gameMode === 'night-heist' && !panel && (
+        <>
+          {activeClue && !activeClue.discovered && (
+            <div className="interaction-prompt clue-prompt">
+              <kbd>E</kbd>
+              <span>Investigate Clue: <strong>{activeClue.title}</strong></span>
+            </div>
+          )}
+          {nearSuspect && heistState && heistState.stage !== 'intercepted' && heistState.stage !== 'resolved' && (
+            <div className="interaction-prompt suspect-prompt">
+              <kbd>E</kbd>
+              <span><strong>CORNER SUSPECT & SECURE PAINTING</strong></span>
+            </div>
+          )}
+        </>
+      )}
+
+      {nearArtwork && !panel && !nearClueId && <div className="interaction-prompt"><kbd>E</kbd><span>Inspect {nearArtwork}</span></div>}
       {!panel && gallery && <p className="passage-hint">{passageHint}</p>}
-      <div className="control-hints"><span><kbd>Tab</kbd> Dashboard</span><span><kbd>M</kbd> Security Map</span><span><kbd>R</kbd> Radio</span></div>
+
+      <div className="control-hints">
+        {gameMode === 'night-heist' && (
+          <>
+            <span onClick={() => toggleFlashlight()} style={{ cursor: 'pointer' }}>
+              <kbd>F</kbd> Flashlight: {heistState?.flashlightOn ? 'ON' : 'OFF'}
+            </span>
+            <span onClick={() => useGameStore.getState().setPanel('cctv')} style={{ cursor: 'pointer' }}>
+              <kbd>C</kbd> CCTV Console
+            </span>
+          </>
+        )}
+        <span><kbd>Tab</kbd> Dashboard</span>
+        <span><kbd>M</kbd> Security Map</span>
+        <span><kbd>R</kbd> Radio</span>
+      </div>
+
       <Minimap />
       {error && <div className="error-toast">{error}</div>}
 
@@ -169,9 +322,11 @@ export function GameScreen() {
       {panel === 'map' && <FullMapPanel />}
       {panel === 'artifact' && <ArtifactPanel />}
       {(panel === 'camera' || panel === 'grande-camera') && <CameraFeedPanel />}
+      {panel === 'cctv' && <CCTVPanel />}
       {panel === 'radio' && <RadioPanel />}
       {panel === 'pause' && <PausePanel />}
       {panel === 'report' && <ReportPanel />}
+      {panel === 'heist-report' && <HeistReportPanel />}
     </main>
   );
 }

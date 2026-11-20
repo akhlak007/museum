@@ -80,7 +80,7 @@ function addFrame(
   group.position.copy(position);
   group.rotation.y = rotationY;
   scene.add(group);
-  return group;
+  return { group, painting, frame };
 }
 
 function createPerson(uniformColor: string, skinColor: string, scale = 1) {
@@ -164,6 +164,12 @@ export interface RoomActors {
   sensor: THREE.Mesh;
   camera: THREE.Group;
   incidentPosition: THREE.Vector3;
+  hemiLight: THREE.HemisphereLight;
+  keyLight: THREE.DirectionalLight;
+  ceilingLights: THREE.PointLight[];
+  ferronnierePainting: THREE.Mesh;
+  emptyFrameBacking: THREE.Group;
+  suspect: THREE.Group;
 }
 
 export function createRoom711(scene: THREE.Scene): RoomActors {
@@ -348,7 +354,8 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
   visitor.position.set(-5, 0, 4);
   scene.add(visitor);
 
-  scene.add(new THREE.HemisphereLight('#c8dcff', '#5b3824', 1.65));
+  const hemiLight = new THREE.HemisphereLight('#c8dcff', '#5b3824', 1.65);
+  scene.add(hemiLight);
   const keyLight = new THREE.DirectionalLight('#fff1d6', 2.3);
   keyLight.position.set(2, 12, 5);
   keyLight.castShadow = true;
@@ -358,10 +365,12 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
   keyLight.shadow.camera.top = 16;
   keyLight.shadow.camera.bottom = -16;
   scene.add(keyLight);
+  const ceilingLights: THREE.PointLight[] = [];
   for (const x of [-14, -7, 0, 7, 14]) {
     const light = new THREE.PointLight('#ffdca5', 18, 14, 2);
     light.position.set(x, 7.5, -7);
     scene.add(light);
+    ceilingLights.push(light);
   }
 
   const grandeCamera = camera.clone();
@@ -406,7 +415,21 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
   }
   const [artX, artZ] = galleryLocations['710'].artwork;
   addFrame(scene, loader, saintJohnImage, new THREE.Vector3(artX, 3.1, artZ), 0, [2.1, 2.55]);
-  addFrame(scene, loader, ferronniereImage, new THREE.Vector3(ferronnierePosition[0], 2.9, ferronnierePosition[1]), 0, [1.5, 2.15]);
+  const ferronniereFrameObj = addFrame(scene, loader, ferronniereImage, new THREE.Vector3(ferronnierePosition[0], 2.9, ferronnierePosition[1]), 0, [1.5, 2.15]);
+
+  const emptyFrameBacking = new THREE.Group();
+  const emptyMat = new THREE.MeshStandardMaterial({ color: '#251b14', roughness: 0.95 });
+  const emptyMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.15), emptyMat);
+  emptyMesh.position.z = 0.122;
+  const wireMat = new THREE.LineBasicMaterial({ color: '#c0382d' });
+  const wireGeom = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-0.6, 0.9, 0.126),
+    new THREE.Vector3(-0.52, 0.35, 0.128),
+    new THREE.Vector3(-0.58, -0.2, 0.13),
+  ]);
+  emptyFrameBacking.add(emptyMesh, new THREE.Line(wireGeom, wireMat));
+  emptyFrameBacking.visible = false;
+  ferronniereFrameObj.group.add(emptyFrameBacking);
   const cream = new THREE.MeshStandardMaterial({ color: '#e9d9ba', roughness: .81 });
   const red = new THREE.MeshStandardMaterial({ color: '#63372c', roughness: .85 });
   const marble = new THREE.MeshStandardMaterial({ color: '#dad3c3', roughness: .52 });
@@ -497,12 +520,24 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
     scene.add(person);
     return { person, x, z, radiusX, radiusZ };
   });
+  const suspect = createPerson('#0c131d', '#323d4b', 0.96);
+  suspect.position.set(104, -4.2, 8);
+  suspect.rotation.y = -Math.PI / 3;
+  suspect.visible = false;
+  scene.add(suspect);
+
   return {
     guard,
     visitor,
     sensor,
     camera, grandeCamera, grandeSensor, galleryVisitors,
     incidentPosition: new THREE.Vector3(-2.8, 0, -10.1),
+    hemiLight,
+    keyLight,
+    ceilingLights,
+    ferronnierePainting: ferronniereFrameObj.painting,
+    emptyFrameBacking,
+    suspect,
   };
 }
 
