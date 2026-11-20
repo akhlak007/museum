@@ -1,5 +1,7 @@
-import { useGameStore } from '../app/store';
-import { ROOM_711_MARKERS, toLargeMap } from '../world/mapRegistry';
+import { useEffect, useState } from 'react';
+import { PRIORITY_VERIFICATION_SECONDS, useGameStore } from '../app/store';
+import { ferronniereImage, findAddedExhibit, saintJohnImage } from '../world/galleries';
+import { MuseumMap } from './MuseumMap';
 
 function PanelShell({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -19,6 +21,9 @@ export function DashboardPanel() {
   const guardStatus = useGameStore((state) => state.guardStatus);
   const cameraStatus = useGameStore((state) => state.cameraStatus);
   const sensorStatus = useGameStore((state) => state.sensorStatus);
+  const grandeCamera = useGameStore(state => state.grandeCamera);
+  const grandeSensor = useGameStore(state => state.grandeSensor);
+  const history = useGameStore(state => state.history);
   const toggleResource = useGameStore((state) => state.toggleResource);
   return (
     <PanelShell title="Security Dashboard" wide onClose={() => setPanel(null)}>
@@ -32,11 +37,14 @@ export function DashboardPanel() {
       </div>
       <div className="dashboard-columns">
         <div>
-          <h3>Incident activity</h3>
+          <h3>Incident activity</h3>{history.map(record => <p key={record.id}>Room {record.roomId} · {record.title} · resolved</p>)}
           {incident ? incident.actions.map((action) => <div className="timeline-row" key={`${action.stage}-${action.at}`}><b>{action.stage}</b><span>{action.note}</span></div>) : <p className="empty-state">No incidents recorded during this shift.</p>}
         </div>
         <div>
           <h3>Resource assignments</h3>
+          <div className="resource-row"><span>710 · Camera C-710 · {grandeCamera}</span><button disabled={grandeCamera !== 'online'} onClick={() => setPanel('grande-camera')}>View 710 feed</button><button onClick={() => void toggleResource('C-710')}>Toggle camera</button></div>
+          <div className="resource-row"><span>710 · Sensor S-710-A · {grandeSensor}</span><button onClick={() => void toggleResource('S-710-A')}>Toggle sensor</button></div>
+          <button className="secondary-button dashboard-map-button" onClick={() => setPanel('map')}>Open museum map</button>
           <div className="resource-row"><span>G-12 · Gallery guard</span><b>{guardStatus}</b></div>
           <div className="resource-row"><span>C-711 · Fictional CCTV</span><div className="resource-actions"><button disabled={cameraStatus !== 'online'} onClick={() => setPanel('camera')}>View feed</button><button onClick={() => void toggleResource('C-711')}>{cameraStatus === 'online' ? 'Take offline' : 'Restore online'}</button></div></div>
           <div className="resource-row"><span>S-711-A · Proximity sensor</span><button onClick={() => void toggleResource('S-711-A')}>{sensorStatus === 'online' ? 'Take offline' : 'Restore online'}</button></div>
@@ -47,63 +55,85 @@ export function DashboardPanel() {
 }
 
 export function CameraFeedPanel() {
+  const grande = useGameStore(state => state.panel === 'grande-camera');
+  const grandeStatus = useGameStore(state => state.grandeCamera);
   const setPanel = useGameStore((state) => state.setPanel);
   const cameraStatus = useGameStore((state) => state.cameraStatus);
   return (
     <section className="camera-feed-overlay" aria-label="Live simulated camera feed">
-      <header><div><span className="recording-dot" />LIVE · C-711</div><strong>SALLE DES ÉTATS · FICTIONAL TRAINING CAMERA</strong><button onClick={() => setPanel('dashboard')} aria-label="Close camera feed">×</button></header>
+      <header><div><span className="recording-dot" />LIVE · {grande ? 'C-710' : 'C-711'}</div><strong>{grande ? 'GRANDE GALERIE' : 'SALLE DES ÉTATS'} · FICTIONAL TRAINING CAMERA</strong><button onClick={() => setPanel('dashboard')} aria-label="Close camera feed">×</button></header>
       <div className="camera-reticle"><i /><i /></div>
-      <footer><span>SIMULATED RESOURCE · NOT A REAL SECURITY LOCATION</span><b>{cameraStatus.toUpperCase()}</b></footer>
+      <footer><span>SIMULATED RESOURCE · NOT A REAL SECURITY LOCATION</span><b>{(grande ? grandeStatus : cameraStatus).toUpperCase()}</b></footer>
     </section>
   );
 }
 
 export function FullMapPanel() {
   const setPanel = useGameStore((state) => state.setPanel);
-  const incident = useGameStore((state) => state.incident);
-  const player = useGameStore((state) => state.player);
-  const guard = useGameStore((state) => state.guardMapPosition);
-  const largePlayer = toLargeMap(player);
-  const largeGuard = toLargeMap(guard);
   return (
     <PanelShell title="Full Museum Security Map" wide onClose={() => setPanel(null)}>
-      <div className="floor-tabs">{[-2, -1, 0, 1, 2].map((floor) => <button className={floor === 1 ? 'active' : ''} disabled={floor !== 1} key={floor}>Level {floor}</button>)}</div>
-      <div className="full-map-layout">
-        <aside className="map-sidebar">
-          <h3>Wings</h3>
-          <label><input type="checkbox" checked readOnly /> Denon Wing</label>
-          <label><input type="checkbox" disabled /> Sully Wing</label>
-          <label><input type="checkbox" disabled /> Richelieu Wing</label>
-          <p>Only Room 711 is loaded in this vertical slice. Future areas remain tracked in the roadmap.</p>
-        </aside>
-        <div className="large-map">
-          <svg viewBox="0 0 150 100">
-            <path className="map-room" d="M12 12H138V72H102V90H48V72H12Z" />
-            <text x="75" y="48" className="room-label">711 · SALLE DES ÉTATS</text>
-            <rect className="map-artifact" x={toLargeMap(ROOM_711_MARKERS.artifact).x - 3} y={toLargeMap(ROOM_711_MARKERS.artifact).y - 2} width="6" height="5" />
-            <circle className="map-guard" cx={largeGuard.x} cy={largeGuard.y} r="3" />
-            <rect className="map-camera" x={toLargeMap(ROOM_711_MARKERS.camera).x - 3.5} y={toLargeMap(ROOM_711_MARKERS.camera).y - 2} width="7" height="4" />
-            {incident && incident.stage !== 'resolved' && <g className="map-incident"><circle cx={toLargeMap(ROOM_711_MARKERS.incident).x} cy={toLargeMap(ROOM_711_MARKERS.incident).y} r="6" /><text x={toLargeMap(ROOM_711_MARKERS.incident).x} y={toLargeMap(ROOM_711_MARKERS.incident).y + 3}>!</text></g>}
-            <g transform={`translate(${largePlayer.x} ${largePlayer.y}) rotate(${(player.yaw * 180) / Math.PI})`} className="map-player"><path d="M0 -5 L3.5 4 L0 2 L-3.5 4 Z" /></g>
-          </svg>
-          <div className="map-coordinate-note">Shared 3D/map coordinate system · fictional security placements</div>
-        </div>
-      </div>
+      <MuseumMap />
     </PanelShell>
   );
 }
 
 export function ArtifactPanel() {
   const setPanel = useGameStore((state) => state.setPanel);
-  const artifactStatus = useGameStore((state) => state.artifactStatus);
-  const inspectionLogged = useGameStore((state) => state.inspectionLogged);
+  const artwork = useGameStore(state => state.inspectedArtwork);
+  const exhibit = findAddedExhibit(artwork);
+  const saintJohn = artwork === 'Saint John the Baptist';
+  const ferronniere = artwork === 'La Belle Ferronnière';
+  const grande = saintJohn || ferronniere;
+  const wedding = artwork === 'The Wedding Feast at Cana';
+  const artifactStatus = useGameStore(state => state.incident?.roomId === (grande ? '710' : '711') && !wedding && !ferronniere ? state.artifactStatus : 'safe');
   return (
     <PanelShell title="Artifact Inspection" onClose={() => setPanel(null)}>
       <div className="artifact-layout">
-        <img src="/artwork/mona-lisa.jpg" alt="Mona Lisa by Leonardo da Vinci" />
-        <div><h3>Mona Lisa <small>(La Joconde)</small></h3><dl><dt>Artist</dt><dd>Leonardo da Vinci</dd><dt>Date</dt><dd>1503–1519</dd><dt>Location</dt><dd>Room 711 · Denon · Level 1</dd><dt>Status</dt><dd className={artifactStatus === 'safe' ? 'safe-text' : 'warning-text'}>{artifactStatus.replace('_', ' ')}</dd></dl><p>Leonardo’s portrait is displayed in a temperature- and humidity-controlled protective case. Its subtle transitions are associated with his sfumato technique.</p><a href="https://collections.louvre.fr/en/ark:/53355/cl010062370" target="_blank" rel="noreferrer">Official Louvre collection record</a></div>
+        {exhibit ? <>
+          {exhibit.image && <img src={exhibit.image} alt={artwork ?? ''} />}
+          <div>
+            <h3>{artwork}</h3>
+            <dl><dt>Artist</dt><dd>{exhibit.artist}</dd><dt>Location</dt><dd>{exhibit.room}</dd></dl>
+            <p>{exhibit.detail}</p>
+            <a href={exhibit.source} target="_blank" rel="noreferrer">Official Louvre collection record</a>
+          </div>
+        </> : ferronniere ? <>
+          <img src={ferronniereImage} alt="La Belle Ferronnière by Leonardo da Vinci" />
+          <div>
+            <h3>La Belle Ferronnière</h3>
+            <dl><dt>Artist</dt><dd>Leonardo da Vinci</dd><dt>Location</dt><dd>Room 710 · Denon · Level 1</dd><dt>Status</dt><dd className="safe-text">Safe</dd></dl>
+            <p>Leonardo’s sitter is unidentified. The familiar title arose when a nineteenth-century print confused the portrait with another work.</p>
+            <a href="https://collections.louvre.fr/en/ark:/53355/cl010062372" target="_blank" rel="noreferrer">Official Louvre collection record</a>
+          </div>
+        </> : saintJohn ? <>
+          <img src={saintJohnImage} alt="Saint John the Baptist by Leonardo da Vinci" />
+          <div>
+            <h3>Saint John the Baptist</h3>
+            <dl>
+              <dt>Artist</dt><dd>Leonardo da Vinci</dd>
+              <dt>Date</dt><dd>c. 1508–1519</dd>
+              <dt>Location</dt><dd>Room 710 · Denon · Level 1</dd>
+              <dt>Status</dt><dd className={artifactStatus === 'safe' ? 'safe-text' : 'warning-text'}>{artifactStatus.replaceAll('_', ' ')}</dd>
+            </dl>
+            <p>Oil on walnut panel. The Louvre records the painting as unfinished at Leonardo’s death in 1519.</p>
+            <a href="https://collections.louvre.fr/en/ark:/53355/cl010062374" target="_blank" rel="noreferrer">Official Louvre collection record</a>
+          </div>
+        </> : wedding ? <>
+          <img src="/artwork/wedding-at-cana.jpg" alt="The Wedding Feast at Cana by Veronese" />
+          <div>
+            <h3>The Wedding Feast at Cana</h3>
+            <dl>
+              <dt>Artist</dt><dd>Paolo Caliari, known as Veronese</dd>
+              <dt>Location</dt><dd>Room 711 · Denon · Level 1</dd>
+              <dt>Status</dt><dd className="safe-text">Safe</dd>
+            </dl>
+            <p>Veronese painted this monumental banquet for the refectory of San Giorgio Maggiore in Venice. It hangs opposite the Mona Lisa.</p>
+            <a href="https://www.louvre.fr/en/explore/the-palace/from-the-mona-lisa-to-the-wedding-feast-at-cana" target="_blank" rel="noreferrer">Louvre gallery guide</a>
+          </div>
+        </> : <><img src="/artwork/mona-lisa.jpg" alt="Mona Lisa by Leonardo da Vinci" />
+        <div><h3>Mona Lisa <small>(La Joconde)</small></h3><dl><dt>Artist</dt><dd>Leonardo da Vinci</dd><dt>Date</dt><dd>1503–1519</dd><dt>Location</dt><dd>Room 711 · Denon · Level 1</dd><dt>Status</dt><dd className={artifactStatus === 'safe' ? 'safe-text' : 'warning-text'}>{artifactStatus.replace('_', ' ')}</dd></dl><p>Leonardo’s portrait is displayed in a temperature- and humidity-controlled protective case. Its subtle transitions are associated with his sfumato technique.</p><a href="https://collections.louvre.fr/en/ark:/53355/cl010062370" target="_blank" rel="noreferrer">Official Louvre collection record</a></div></>}
       </div>
-      <div className="inspection-footer"><span>Assigned simulated resources: C-711 · S-711-A · Guard G-12</span><strong>{inspectionLogged ? 'Inspection logged locally for this shift' : 'Inspection not logged'}</strong></div>
+      <div className="inspection-footer">{!exhibit && <span>Assigned simulated resources: {grande ? 'C-710 · S-710-A' : 'C-711 · S-711-A'} · Guard G-12</span>}<strong>Inspection logged for this shift</strong></div>
     </PanelShell>
   );
 }
@@ -126,6 +156,19 @@ export function ReportPanel() {
   return <PanelShell title="Mission Report — Operation Quiet Gallery" onClose={() => setPanel(null)}><div className="report-grade"><span>GRADE</span><strong>{score >= 900 ? 'A' : score >= 700 ? 'B' : 'C'}</strong><b>{score.toLocaleString()} points</b></div><div className="report-row"><span>Protocol completed</span><b>6 / 6</b></div><div className="report-row"><span>Visitor safety</span><b>Protected</b></div><div className="report-row"><span>Artifact secured</span><b>Safe</b></div><div className="report-row"><span>Persistence</span><b>{cloudStatus === 'connected' ? 'Saved to Supabase' : cloudStatus === 'saving' ? 'Saving…' : cloudStatus === 'error' ? 'Save failed' : 'Demo memory only'}</b></div><button className="primary-button" onClick={() => setPanel(null)}>Continue patrol</button></PanelShell>;
 }
 
+function VerificationClock({ detectedAt }: { detectedAt: string }) {
+  const deadline = Date.parse(detectedAt) + PRIORITY_VERIFICATION_SECONDS * 1000;
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, []);
+  const seconds = Math.ceil((deadline - now) / 1000);
+  return <p role="timer" className={seconds <= 10 ? 'warning-text' : undefined}>
+    {seconds > 0 ? `Time to verify for full score · ${seconds}s` : 'Verification overdue · score penalty applies'}
+  </p>;
+}
+
 export function IncidentPanel() {
   const incident = useGameStore((state) => state.incident);
   const nearIncident = useGameStore((state) => state.nearIncident);
@@ -135,12 +178,18 @@ export function IncidentPanel() {
   const log = useGameStore((state) => state.logIncident);
   const resolve = useGameStore((state) => state.resolveIncident);
   const guardStatus = useGameStore((state) => state.guardStatus);
+  const priorityShift = useGameStore(state => state.priorityShift);
+  const field = useGameStore(state => state.fieldContact);
   if (!incident || incident.stage === 'resolved') return null;
   return (
     <aside className="incident-card">
       <div className="incident-title"><span>SECURITY INCIDENT</span><b>{incident.stage.toUpperCase()}</b></div>
       <p>{incident.description}</p>
-      {incident.stage === 'detected' && <button disabled={!nearIncident} onClick={verify}>{nearIncident ? 'Verify on scene' : 'Approach the red marker to verify'}</button>}
+      {priorityShift && incident.stage === 'detected' && <VerificationClock key={incident.id} detectedAt={incident.detectedAt} />}
+      {incident.stage === 'detected' && (priorityShift ? <>
+        <p>{field?.inRange ? 'Hold F to speak to the visitor' : 'Follow the moving red marker and approach the visitor'}</p>
+        <progress aria-label="Visitor contact" value={field?.progress ?? 0} max={1} />
+      </> : <button disabled={!nearIncident} onClick={verify}>{nearIncident ? 'Verify on scene' : 'Approach the red marker to verify'}</button>)}
       {incident.stage === 'verified' && <button onClick={classify}>Classify visitor violation</button>}
       {incident.stage === 'classified' && <button onClick={dispatch}>Dispatch Guard G-12</button>}
       {incident.stage === 'responding' && <button disabled={guardStatus !== 'on-scene'} onClick={log}>{guardStatus === 'on-scene' ? 'Log safe response' : 'Guard G-12 en route…'}</button>}

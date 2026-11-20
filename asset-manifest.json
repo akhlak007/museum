@@ -70,6 +70,43 @@
       "license": "User-provided reference; redistribution rights not asserted",
       "implementationStatus": "reference-only",
       "verificationStatus": "not shipped as flattened gameplay assets"
+    },
+    {
+      "id": "saint-john-image",
+      "type": "artwork image",
+      "source": "https://commons.wikimedia.org/wiki/File:Leonardo_da_Vinci_-_Saint_John_the_Baptist_C2RMF_retouched.jpg",
+      "license": "Public Domain Mark, C2RMF reproduction",
+      "localPath": "public/artwork/saint-john.jpg",
+      "sha256": "345ea8137e495f13787a110745d418fcb3a5ecf12c54dceeffe40826621f94a3",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "la-belle-ferronniere-image",
+      "type": "artwork image",
+      "source": "https://commons.wikimedia.org/wiki/File:La_Belle_Ferronni%C3%A8re.jpg",
+      "license": "Public Domain Mark, Web Gallery of Art reproduction",
+      "localPath": "public/artwork/la-belle-ferronniere.jpg",
+      "sha256": "2AEF0419F7C5232F125B5EAB84EF7169D767A08F6F53172B10315BF3F66375F2",
+      "implementationStatus": "implemented",
+      "verificationStatus": "artwork and Room 710 association documented by the Louvre"
+    },
+    {
+      "id": "cimabue-maesta-image",
+      "type": "artwork image",
+      "source": "https://commons.wikimedia.org/wiki/File:Cimabue_-_Virgin_Enthroned_with_Angels_-_WGA04938.jpg",
+      "license": "Public domain, Web Gallery of Art reproduction",
+      "localPath": "public/artwork/cimabue-maesta.jpg",
+      "sha256": "DC75974E9D676640A6236B12CDD857BFA2B07BA5DD6E245B7621E40F188CFC5F",
+      "implementationStatus": "implemented"
+    },
+    {
+      "id": "giotto-stigmata-image",
+      "type": "artwork image",
+      "source": "https://commons.wikimedia.org/wiki/File:Giotto_di_Bondone_-_Stigmatization_of_St_Francis_-_WGA09329.jpg",
+      "license": "Public Domain Mark, Web Gallery of Art reproduction",
+      "localPath": "public/artwork/giotto-stigmata.jpg",
+      "sha256": "3F8CFCC78CA515A1699E8B4A5797E50342BC9B21A68E3B8C4F0277343C509D0C",
+      "implementationStatus": "implemented"
     }
   ]
 }

@@ -28,10 +28,13 @@ export function advanceIncident(incident: Incident, target: IncidentStage, note:
   };
 }
 
-export function calculateMissionScore(incident: Incident | null): number {
+export function calculateMissionScore(incident: Incident | null, verificationTarget?: number): number {
   if (!incident || incident.stage !== 'resolved') return 0;
   const protocolScore = incident.actions.length >= 6 ? 700 : 400;
   const safetyScore = incident.actions.some((action) => /safe|calm|visitor/i.test(action.note)) ? 300 : 150;
-  return protocolScore + safetyScore;
+  const verifiedAt = incident.actions.find(action => action.stage === 'verified')?.at;
+  const verificationSeconds = verifiedAt ? (Date.parse(verifiedAt) - Date.parse(incident.detectedAt)) / 1000 : 0;
+  const latePenalty = verificationTarget === undefined ? 0 : Math.min(350, Math.max(0, Math.ceil(verificationSeconds - verificationTarget)) * 10);
+  return protocolScore + safetyScore - latePenalty;
 }
 
