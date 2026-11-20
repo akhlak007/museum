@@ -81,11 +81,21 @@ input:focus { border-color: var(--gold-bright); box-shadow: 0 0 0 3px rgba(225,1
 .objectives p.done::before { content: "✓"; display: grid; place-items: center; color: white; background: #287e3a; border-color: #56ba6a; font-size: .62rem; }
 
 .minimap { position: absolute; z-index: 5; right: 20px; bottom: 20px; width: 230px; height: 230px; border: 2px solid #d7d2c8; border-radius: 50%; overflow: hidden; background: #0b1823e8; box-shadow: 0 6px 30px #000b, inset 0 0 30px #000a; }
-.minimap-heading { position: absolute; z-index: 2; left: 42px; right: 42px; top: 12px; display: flex; justify-content: space-between; font-size: .6rem; color: #c7d2d7; }
+.minimap-heading { position: absolute; z-index: 2; inset: 24px 0 auto; display: flex; justify-content: center; gap: .65rem; font-size: .6rem; color: #c7d2d7; }
 .minimap svg { width: 100%; height: 100%; padding: 26px 16px 12px; }
 .map-room { fill: #263644; stroke: #b6c0c5; stroke-width: 1.2; }
+.map-room-current { fill: #354d5a; }
+.map-room-label { fill: #f5f1e8; font-size: 5px; font-weight: 700; }
+.map-passage path { stroke: #f8d878; stroke-width: 3; stroke-linecap: round; }
+.passage-hint { position: absolute; right: 20px; bottom: 252px; z-index: 5; margin: 0; padding: .4rem .6rem; background: #08131eed; color: #f8d878; font-size: .72rem; }
 .map-guard { fill: #79b9eb; stroke: #07121d; stroke-width: 1; }
+.map-artifact { fill: #c5a059; }
+.map-barrier { fill: none; stroke: #be8669; stroke-width: .75; stroke-dasharray: 1.2 .8; }
 .map-camera { fill: #dfbf67; }
+.map-sensor { fill: #65cc9c; }
+.map-door { fill: #d1ccbd; }
+.map-resource-offline { fill: #62727d; stroke: #b9c3ca; stroke-width: .65; stroke-dasharray: 1 .8; }
+.map-alert { stroke: #f0b762; stroke-width: .8; }
 .map-incident circle { fill: var(--red); stroke: #fff; stroke-width: 1; animation: pulse 1.2s infinite; }
 .map-incident text { fill: white; text-anchor: middle; font-size: 7px; font-weight: 900; }
 .map-player path { fill: #f4f8ff; stroke: #2a74c9; stroke-width: 1.2; }
@@ -142,19 +152,50 @@ kbd { font: 700 .68rem ui-monospace, monospace; border: 1px solid #87939a; backg
 .camera-reticle i:first-child::before { right: 4rem; }
 .camera-reticle i:last-child::before { left: 4rem; }
 @keyframes pulse { 50% { opacity: .35; } }
-.floor-tabs { display: flex; gap: .4rem; margin-bottom: .7rem; }
-.floor-tabs button { border: 1px solid #465763; background: #152531; color: #cfd5d7; padding: .45rem .75rem; }
-.floor-tabs button.active { background: #b18b40; color: #101820; border-color: #e2c06e; }
-.map-layout, .full-map-layout { display: grid; grid-template-columns: 210px 1fr; min-height: 430px; margin-top: 0 !important; }
-.map-sidebar { padding: 1rem; background: #0b1620; border-right: 1px solid #344550; }
-.map-sidebar h3 { font: 400 1rem Georgia, serif; }
-.map-sidebar label { display: flex; align-items: center; gap: .55rem; margin: .7rem 0; }
+.minimap-open { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); white-space: nowrap; border: 1px solid #526375; border-radius: 4px; padding: .28rem .55rem; background: #0b1823; color: #f5f1e8; font-size: .72rem; }
+.minimap-open kbd { margin-right: .15rem; padding: .08rem .22rem; }
+.dashboard-map-button { margin-bottom: .5rem; }
+.museum-map { padding: 1rem 0; }
+.floor-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .7rem; }
+.floor-tabs button { border: 1px solid #536675; background: #152531; color: #e0e5e5; padding: .5rem .75rem; }
+.floor-tabs button.active { background: #cba75a; color: #101820; border-color: #e2c06e; }
+.wing-tabs { margin-bottom: 1rem; }
+.museum-overview {
+  display: grid;
+  grid-template: "richelieu sully" auto "reception sully" auto "denon sully" auto / minmax(0, 3fr) minmax(0, 2fr);
+  gap: .6rem;
+  padding: .75rem;
+  border: 1px solid #344550;
+  background: #091520;
+}
+.museum-overview-focused { grid-template: none / minmax(0, 1fr); }
+.museum-wing { border: 1px solid #5c7180; border-left: 4px solid #a5c5d6; background: #142b3c; padding: .85rem 1rem; }
+.wing-richelieu { grid-area: richelieu; border-left-color: #9ec7dc; }
+.wing-sully { grid-area: sully; border-left-color: #b6c79e; background: #1b2d2f; }
+.wing-denon { grid-area: denon; border-left-color: #dfba6c; background: #282a2a; }
+.wing-pyramid-reception { grid-area: reception; border-left-color: #c0aecf; }
+.museum-overview-focused .museum-wing { grid-area: auto; }
+.museum-wing h3, .map-sidebar h3 { margin: 0; font: 400 1.15rem Georgia, serif; }
+.museum-wing ul { margin: .55rem 0 0; padding-left: 1.15rem; color: #d0dae0; line-height: 1.55; }
+.room-map-link { display: grid; gap: .3rem; width: 100%; margin-top: .8rem; padding: .65rem .75rem; border: 1px solid #d6ad5a; background: #40341e; color: #fff0c7; text-align: left; }
+.room-map-link span, .museum-map-note { font-size: .85rem; }
+.museum-map-note { color: #bdcbd2; margin-bottom: 0; }
+.museum-map-note a { color: #efd48c; }
+.full-map-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 240px); border: 1px solid #344550; }
+.map-sidebar { padding: 1rem; background: #0b1620; border-left: 1px solid #344550; }
+.map-sidebar button { margin-bottom: 1rem; }
+.map-sidebar label { display: flex; align-items: center; gap: .55rem; margin: .85rem 0; }
 .map-sidebar input { width: auto; }
-.map-sidebar p { color: #9faab0; font-size: .72rem; line-height: 1.5; }
-.large-map { position: relative; display: grid; place-items: center; background-image: linear-gradient(#ffffff08 1px, transparent 1px), linear-gradient(90deg,#ffffff08 1px,transparent 1px); background-size: 30px 30px; }
-.large-map svg { width: 92%; max-height: 420px; }
-.room-label { fill: #e4ddd0; text-anchor: middle; font-size: 6px; letter-spacing: .08em; }
-.map-coordinate-note { position: absolute; bottom: .6rem; color: #8e9da4; font-size: .68rem; }
+.map-sidebar p { color: #bdcbd2; font-size: .8rem; line-height: 1.5; }
+.security-map-key { list-style: none; padding: 0; margin: 0; display: grid; gap: .45rem; font-size: .85rem; color: #d6e0e5; }
+.security-map-key li::before { content: ''; display: inline-block; width: .6rem; height: .6rem; margin-right: .4rem; background: var(--marker, #edf6f9); }
+.key-artifact { --marker: #c5a059; }
+.key-guard { --marker: #79b9eb; }
+.key-camera { --marker: #dfbf67; }
+.key-sensor { --marker: #65cc9c; }
+.key-incident { --marker: #d64538; }
+.large-map { display: grid; place-items: center; min-height: 240px; background: #0d1c28; }
+.large-map svg { width: min(100%, 500px); max-height: 460px; }
 .artifact-layout { display: grid; grid-template-columns: minmax(180px, 270px) 1fr; gap: 1.5rem; }
 .artifact-layout img { width: 100%; max-height: 430px; object-fit: cover; border: 10px solid #a98132; box-shadow: 0 10px 28px #000a; }
 .artifact-layout small { display: block; color: #aeb5b8; font: .8rem sans-serif; }
@@ -181,10 +222,12 @@ dt { color: #8f9da3; } dd { margin: 0; }
   .objectives { width: 240px; }
   .incident-card { top: auto; bottom: 258px; right: 12px; width: min(330px, calc(100% - 24px)); }
   .minimap { width: 190px; height: 190px; right: 12px; bottom: 12px; }
+  .passage-hint { right: 12px; bottom: 210px; }
   .control-hints { display: none; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .dashboard-columns, .artifact-layout, .report-grid { grid-template-columns: 1fr; }
-  .map-layout, .full-map-layout { grid-template-columns: 1fr; }
-  .map-sidebar { display: none; }
+  .full-map-layout, .museum-overview { grid-template: none / minmax(0, 1fr); }
+  .museum-wing { grid-area: auto; }
+  .map-sidebar { border-left: 0; border-top: 1px solid #344550; }
   .briefing-grid { grid-template-columns: 1fr; }
 }

@@ -1,39 +1,52 @@
+import { galleries, galleryAt, galleryLocations } from './galleries';
 import type { PlayerMapPosition } from '../domain/types';
 
-export const ROOM_711 = {
-  id: '711',
-  name: 'Salle des États',
-  wing: 'Denon',
-  level: 1,
-  bounds: { minX: -22, maxX: 22, minZ: -14, maxZ: 14 },
-  mapPolygon: '8,12 92,12 92,76 70,76 70,90 30,90 30,76 8,76',
-  confidence: 'recognizable approximation' as const,
-};
+const mapScaleX = 84 / 44;
+const mapScaleY = 64 / 28;
+
+export function projectToMap(x: number, z: number) {
+  return { x: 50 + x * mapScaleX, y: 44 + z * mapScaleY };
+}
 
 export function worldToMap(x: number, z: number, yaw: number): PlayerMapPosition {
-  const { minX, maxX, minZ, maxZ } = ROOM_711.bounds;
+  const gallery = galleryAt(x, z);
   return {
-    x: 8 + ((x - minX) / (maxX - minX)) * 84,
-    y: 12 + ((z - minZ) / (maxZ - minZ)) * 64,
+    ...projectToMap(x, z),
     yaw,
-    floor: 1,
+    floor: gallery?.floor ?? galleries[0].floor,
+    galleryId: gallery?.id,
   };
+}
+
+export function mapHeading(yaw: number) {
+  return Math.atan2(Math.sin(yaw) * mapScaleX, -Math.cos(yaw) * mapScaleY) * 180 / Math.PI;
+}
+
+export function galleryMapBounds([left, right, top, bottom]: readonly [number, number, number, number]) {
+  const start = projectToMap(left, top);
+  const end = projectToMap(right, bottom);
+  return { ...start, width: end.x - start.x, height: end.y - start.y };
+}
+
+export function floorMapViewBox(floor: number) {
+  const rooms = galleries.filter(gallery => gallery.floor === floor);
+  if (!rooms.length) return '0 0 100 100';
+  const { x, y, width, height } = galleryMapBounds([
+    Math.min(...rooms.map(room => room.bounds[0])),
+    Math.max(...rooms.map(room => room.bounds[1])),
+    Math.min(...rooms.map(room => room.bounds[2])),
+    Math.max(...rooms.map(room => room.bounds[3])),
+  ]);
+  return `${x - 7} ${y - 7} ${width + 14} ${height + 14}`;
 }
 
 export const ROOM_711_MARKERS = {
-  artifact: worldToMap(0, -13.6, 0),
+  artifact: projectToMap(...galleryLocations['711'].artwork),
   guard: worldToMap(11, -7.5, 0),
-  camera: worldToMap(-19.8, -12.9, 0),
-  sensor: worldToMap(4.1, -13.45, 0),
-  incident: worldToMap(-2.8, -10.1, 0),
+  camera: worldToMap(...galleryLocations['711'].camera, 0),
+  sensor: projectToMap(...galleryLocations['711'].sensor),
+  incident: projectToMap(...galleryLocations['711'].incident),
 };
-
-export function toLargeMap(point: Pick<PlayerMapPosition, 'x' | 'y'>) {
-  return {
-    x: point.x * 1.5,
-    y: 12 + ((point.y - 12) / 64) * 60,
-  };
-}
 
 export function distance2D(a: { x: number; z: number }, b: { x: number; z: number }): number {
   return Math.hypot(a.x - b.x, a.z - b.z);

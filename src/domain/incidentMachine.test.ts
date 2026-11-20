@@ -13,5 +13,14 @@ describe('incident protocol', () => {
     const resolved = advanceIncident(logged, 'resolved', 'visitor safe; artwork secure');
     expect(resolved.actions.map((item) => item.stage)).toEqual(['detected', 'verified', 'classified', 'responding', 'logged', 'resolved']);
     expect(calculateMissionScore(resolved)).toBe(1000);
+    const verifiedLate = {
+      ...resolved,
+      actions: resolved.actions.map(action => action.stage === 'verified'
+        ? { ...action, at: '2026-11-20T00:00:40Z' }
+        : action),
+    };
+    expect(calculateMissionScore(verifiedLate, 30)).toBe(900);
+    expect(calculateMissionScore(verifiedLate, 5)).toBe(650);
+    expect(calculateMissionScore(verifiedLate)).toBe(1000);
   });
 });

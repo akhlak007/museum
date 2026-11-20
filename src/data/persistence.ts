@@ -30,12 +30,14 @@ class DemoPersistence implements PersistenceGateway {
 class SupabasePersistence implements PersistenceGateway {
   mode = 'supabase' as const;
   private userId: string | null = null;
+  private shiftId: string | null = null;
   constructor(private readonly client: SupabaseClient) {}
 
   async signIn(email: string, password: string): Promise<{ email: string; role: Role }> {
     const { data, error } = await this.client.auth.signInWithPassword({ email, password });
     if (error || !data.user) throw new Error(error?.message ?? 'Authentication failed');
     this.userId = data.user.id;
+    this.shiftId = crypto.randomUUID();
     const { data: profile, error: profileError } = await this.client
       .from('profiles')
       .select('role')
@@ -48,7 +50,7 @@ class SupabasePersistence implements PersistenceGateway {
   async saveMissionReport(incident: Incident, score: number): Promise<void> {
     if (!this.userId) throw new Error('No authenticated operator session');
     const { error } = await this.client.rpc('submit_mission_report', {
-      p_incident: incident,
+      p_incident: { ...incident, shiftId: this.shiftId },
       p_score: score,
     });
     if (error) throw new Error(error.message);

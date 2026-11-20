@@ -1,8 +1,13 @@
 let audioContext: AudioContext | null = null;
 
 export function primeAudio() {
-  audioContext ??= new AudioContext();
-  void audioContext.resume();
+  if (typeof AudioContext !== 'function') return;
+  try {
+    audioContext ??= new AudioContext();
+    void audioContext.resume().catch(() => {});
+  } catch {
+    // Audio cues are optional, including in browser previews.
+  }
 }
 
 export function playSecurityCue(kind: 'incident' | 'arrival') {

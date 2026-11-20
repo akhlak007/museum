@@ -1,3 +1,4 @@
+import { ferronniereImage, ferronnierePosition, galleryById, galleryLocations, passage, saintJohnImage } from './galleries';
 import * as THREE from 'three';
 
 function parquetTexture(): THREE.CanvasTexture {
@@ -155,11 +156,13 @@ function addBarrier(scene: THREE.Scene) {
 }
 
 export interface RoomActors {
+  galleryVisitors: Array<{ person: THREE.Group; x: number; z: number; radiusX: number; radiusZ: number }>;
+  grandeCamera: THREE.Group;
+  grandeSensor: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>;
   guard: THREE.Group;
   visitor: THREE.Group;
   sensor: THREE.Mesh;
   camera: THREE.Group;
-  artifactPosition: THREE.Vector3;
   incidentPosition: THREE.Vector3;
 }
 
@@ -178,8 +181,12 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
   const blue = new THREE.MeshStandardMaterial({ color: '#142a42', roughness: 0.83 });
   const stone = new THREE.MeshStandardMaterial({ color: '#d6cbb8', roughness: 0.78 });
   const gold = new THREE.MeshStandardMaterial({ color: '#a98335', metalness: 0.45, roughness: 0.36 });
+  const gapStart = passage.z - passage.halfWidth;
+  const gapEnd = passage.z + passage.halfWidth;
   const wallParts: Array<[number, number, number, number, number]> = [
-    [44, 8.5, 0.5, 0, -14], [44, 8.5, 0.5, 0, 14], [0.5, 8.5, 28, -22, 0], [0.5, 8.5, 28, 22, 0],
+    [44, 8.5, 0.5, 0, -14], [44, 8.5, 0.5, 0, 14], [0.5, 8.5, 28, -22, 0],
+    [0.5, 8.5, gapStart + 14, passage.x, (gapStart - 14) / 2],
+    [0.5, 8.5, 14 - gapEnd, passage.x, (14 + gapEnd) / 2],
   ];
   for (const [w, h, d, x, z] of wallParts) {
     const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), blue);
@@ -187,6 +194,12 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
     wall.receiveShadow = true;
     scene.add(wall);
   }
+  const header = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4.1, gapEnd - gapStart), blue);
+  header.position.set(passage.x, 6.45, passage.z);
+  scene.add(header);
+  const threshold = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.025, gapEnd - gapStart), gold);
+  threshold.position.set(passage.x, 0.01, passage.z);
+  scene.add(threshold);
 
   for (const z of [-13.68, 13.68]) {
     const base = new THREE.Mesh(new THREE.BoxGeometry(44, 0.38, 0.18), stone);
@@ -237,10 +250,21 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
   for (const x of [-21.45, 21.45]) {
     const door = new THREE.Mesh(new THREE.BoxGeometry(0.16, 4.1, 2.7), new THREE.MeshStandardMaterial({ color: '#321f17', roughness: 0.72 }));
     door.position.set(x, 2.05, 7.4);
-    scene.add(door);
+    if (x < 0) scene.add(door);
     const lintel = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.38, 3.25), stone);
     lintel.position.set(x, 4.24, 7.4);
     scene.add(lintel);
+  }
+
+  for (const [side, title, subtitle] of [
+    [-1, 'Grand Gallery', 'ROOM 710 · OPEN PASSAGE'],
+    [1, 'State Room', 'ROOM 711 · OPEN PASSAGE'],
+  ] as const) {
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.85, 0.9),
+      new THREE.MeshBasicMaterial({ map: labelTexture(title, subtitle) }));
+    sign.position.set(passage.x + side * 0.31, 4.9, passage.z);
+    sign.rotation.y = side * Math.PI / 2;
+    scene.add(sign);
   }
 
   const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(44, 28), new THREE.MeshStandardMaterial({ color: '#d9d1c3', roughness: 0.9 }));
@@ -287,12 +311,13 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
   scene.add(sensor);
 
   const cameraBody = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.32, 0.32), stone);
-  cameraBody.position.set(-19.8, 6.5, -12.9);
   cameraBody.rotation.y = -0.45;
   const cameraLens = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.18, 12), new THREE.MeshStandardMaterial({ color: '#111822' }));
   cameraLens.rotation.z = Math.PI / 2;
-  cameraLens.position.set(-19.35, 6.5, -12.72);
+  cameraLens.position.set(0.45, 0, 0.18);
   const camera = new THREE.Group();
+  const [roomCameraX, roomCameraZ] = galleryLocations['711'].camera;
+  camera.position.set(roomCameraX, 6.5, roomCameraZ);
   camera.add(cameraBody, cameraLens);
   scene.add(camera);
 
@@ -339,12 +364,144 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
     scene.add(light);
   }
 
+  const grandeCamera = camera.clone();
+  const [cameraX, cameraZ] = galleryLocations['710'].camera;
+  grandeCamera.position.set(cameraX, camera.position.y, cameraZ);
+  grandeCamera.rotation.y = Math.PI;
+  scene.add(grandeCamera);
+  const grandeSensor = sensor.clone();
+  grandeSensor.material = sensor.material.clone();
+  grandeSensor.position.set(46,1.7,2);
+  scene.add(grandeSensor);
+  const timber = new THREE.MeshStandardMaterial({map: parquetTexture()});
+  const plaster = new THREE.MeshStandardMaterial({color: '#884d43'});
+  const skylight = new THREE.MeshBasicMaterial({color: '#fff2d5'});
+  function bayPart(size: [number,number,number], at: [number,number,number], material: THREE.Material) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
+    mesh.position.set(...at);
+    scene.add(mesh);
+  }
+  const [west, east, north, south] = galleryById('710')!.bounds;
+  const length = east - west;
+  const width = south - north;
+  const centerX = (west + east) / 2;
+  const centerZ = (north + south) / 2;
+  bayPart([length, .12, width], [centerX, -.06, centerZ], timber);
+  for (const z of [north, south]) bayPart([length, 8, .32], [centerX, 4, z], plaster);
+  const opening = 2.9;
+  for (const [start, end] of [[north, 7.4 - opening], [7.4 + opening, south]]) {
+    bayPart([.32, 8, end - start], [east, 4, (start + end) / 2], plaster);
+  }
+  bayPart([.32, 3.6, 2 * opening], [east, 6.2, 7.4], plaster);
+  bayPart([length, .25, width], [centerX, 8.1, centerZ], stone);
+  const archGeometry = new THREE.TorusGeometry(width / 2 - .35, .24, 6, 24, Math.PI);
+  archGeometry.scale(1, .31, 1);
+  for (let x = west + 4; x < east; x += 8) {
+    bayPart([6, .12, 4], [x, 7.92, centerZ], skylight);
+    const arch = new THREE.Mesh(archGeometry, stone);
+    arch.rotation.y = Math.PI / 2;
+    arch.position.set(x, 6.05, centerZ);
+    scene.add(arch);
+    for (const z of [north + .35, south - .35]) bayPart([.55, 6.1, .45], [x, 3.05, z], stone);
+  }
+  const [artX, artZ] = galleryLocations['710'].artwork;
+  addFrame(scene, loader, saintJohnImage, new THREE.Vector3(artX, 3.1, artZ), 0, [2.1, 2.55]);
+  addFrame(scene, loader, ferronniereImage, new THREE.Vector3(ferronnierePosition[0], 2.9, ferronnierePosition[1]), 0, [1.5, 2.15]);
+  const cream = new THREE.MeshStandardMaterial({ color: '#e9d9ba', roughness: .81 });
+  const red = new THREE.MeshStandardMaterial({ color: '#63372c', roughness: .85 });
+  const marble = new THREE.MeshStandardMaterial({ color: '#dad3c3', roughness: .52 });
+  const upperHeight = 9.6;
+  bayPart([22, .2, 21], [73, -.1, 7.5], timber);
+  bayPart([22, upperHeight, .35], [73, upperHeight / 2, -3], red);
+  bayPart([22, upperHeight, .35], [73, upperHeight / 2, 18], red);
+  bayPart([22, .3, 21], [73, upperHeight, 7.5], cream);
+  for (const [wallX, halfWidth] of [[62, 2.9], [84, 3]]) {
+    for (const [start, end] of [[-3, 7.4 - halfWidth], [7.4 + halfWidth, 18]]) {
+      bayPart([.35, upperHeight, end - start], [wallX, upperHeight / 2, (start + end) / 2], red);
+    }
+    bayPart([.4, 4.7, 2 * halfWidth], [wallX, 7.25, 7.4], cream);
+  }
+  for (const x of [64, 72, 80]) {
+    for (const z of [-2.75, 17.75]) {
+      bayPart([.65, 9.3, .55], [x, 4.65, z], cream);
+      bayPart([1, .5, .72], [x, 8.7, z], gold);
+    }
+    bayPart([4, .12, 9], [x + 1, 9.43, 7.5], skylight);
+  }
+  for (const z of [-2.7, 17.7]) bayPart([22, .35, .3], [73, 8.43, z], gold);
+  addFrame(scene, loader, '/artwork/cimabue-maesta.jpg', new THREE.Vector3(69, 3.7, -2.77), 0, [3.05, 4.48]);
+  addFrame(scene, loader, '/artwork/giotto-stigmata.jpg', new THREE.Vector3(77, 3.5, -2.77), 0, [2.25, 4.3]);
+
+  for (const [x, side, title, subtitle] of [
+    [61.78, -1, 'Square Room', 'ROOM 708 · EARLY ITALIAN PAINTINGS'],
+    [62.24, 1, 'Grand Gallery', 'ROOM 710 · ITALIAN PAINTINGS'],
+    [83.75, -1, 'Daru Staircase', 'WINGED VICTORY · LEVEL 0 ACCESS'],
+  ] as const) {
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1),
+      new THREE.MeshBasicMaterial({ map: labelTexture(title, subtitle) }));
+    sign.position.set(x, x < 63 ? 5.1 : 5.55, 7.4);
+    sign.rotation.y = side * Math.PI / 2;
+    scene.add(sign);
+  }
+
+  bayPart([4, .3, 9], [86, -.15, 7.5], marble);
+  for (let step = 0; step < 24; step += 1) {
+    const height = -step * .175;
+    bayPart([.51, 1, 9], [88.25 + step * .5, height - .5, 7.5], marble);
+  }
+  bayPart([12, .35, 9], [106, -4.375, 7.5], marble);
+  bayPart([.38, 11.5, 9], [112, 1.55, 7.5], cream);
+  for (const z of [3, 12]) {
+    bayPart([28, 11.5, .4], [98, 1.55, z], cream);
+    for (const x of [86, 92, 98, 105, 111]) bayPart([.7, 11.2, .65], [x, 1.4, z], marble);
+  }
+  bayPart([28, .3, 9], [98, 7.5, 7.5], cream);
+  for (const x of [89, 95, 102, 108]) bayPart([3.8, .16, 5], [x, 7.3, 7.5], skylight);
+
+  const monument = new THREE.Group();
+  monument.position.set(86.5, 0, 5.15);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.5, .82, 1.35), stone);
+  base.position.y = .41;
+  const clothProfile = [[0, .85], [.43, .85], [.52, 1.02], [.33, 1.39], [.39, 1.72], [.46, 2.02], [.18, 2.18], [0, 2.18]];
+  const drapery = new THREE.Mesh(new THREE.LatheGeometry(clothProfile.map(([r, y]) => new THREE.Vector2(r, y)), 16), marble);
+  drapery.scale.z = .75;
+  monument.add(base, drapery);
+  for (const side of [-1, 1]) {
+    const outline = new THREE.Shape();
+    outline.moveTo(side * .15, 1.7);
+    outline.quadraticCurveTo(side * 1.45, 3.35, side * 1.25, 2.9);
+    outline.quadraticCurveTo(side * 1.3, 2.15, side * .42, 1.42);
+    outline.lineTo(side * .15, 1.7);
+    const wing = new THREE.Mesh(new THREE.ExtrudeGeometry(outline, { depth: .09, bevelEnabled: true, bevelThickness: .05, bevelSize: .05, bevelSegments: 1, steps: 1 }), marble);
+    wing.position.z = -.18;
+    monument.add(wing);
+  }
+  monument.rotation.y = Math.PI / 2;
+  scene.add(monument);
+  bayPart([1.2, .28, 1.15], [107.8, -4.06, 5], marble);
+  const standProfile = [[0, .23], [.45, .23], [.4, .37], [.33, .42], [.26, .58], [.24, .75],
+    [.2, 1.9], [.25, 2.06], [.3, 2.22], [.26, 2.42], [.43, 2.56], [.44, 2.7], [.31, 2.7], [0, 2.62]];
+  const stand = new THREE.Mesh(new THREE.LatheGeometry(standProfile.map(([r, y]) => new THREE.Vector2(r, y)), 24), marble);
+  stand.position.set(107.8, -4.2, 5);
+  scene.add(stand);
+
+  const galleryVisitors = [
+    [-12, 7, 4, 2], [-12, -6, 3, 1], [12, 6, 4, 1.8], [8, -6, 2.5, 1.1],
+    [30, 9.5, 3, 1.5], [39, 5, 4, 1.5], [53, 9, 5, 1.7], [56, 4, 2, 1],
+    [67, 7, 2.8, 3], [74, 11, 3.3, 3], [79, 1.5, 2.4, 1.9], [105, 7, 3, 1.7],
+  ].map(([x, z, radiusX, radiusZ], index) => {
+    const person = createPerson(['#614458', '#3c5f60', '#7a5942', '#566249'][index % 4],
+      ['#c98c67', '#845339', '#d9ac88'][index % 3], .86 + (index % 3) * .045);
+    person.position.set(x, x > 100 ? -4.2 : 0, z);
+    person.traverse(object => { object.castShadow = false; });
+    scene.add(person);
+    return { person, x, z, radiusX, radiusZ };
+  });
   return {
     guard,
     visitor,
     sensor,
-    camera,
-    artifactPosition: new THREE.Vector3(0, 0, -10.5),
+    camera, grandeCamera, grandeSensor, galleryVisitors,
     incidentPosition: new THREE.Vector3(-2.8, 0, -10.1),
   };
 }

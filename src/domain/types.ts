@@ -16,6 +16,7 @@ export interface Incident {
 export interface PlayerMapPosition {
   x: number;
   y: number;
+  galleryId?: string;
   yaw: number;
   floor: number;
 }
