@@ -14,7 +14,7 @@ import { ROOM_711_MARKERS, worldToMap } from '../world/mapRegistry';
 import type { InspectableArtwork } from '../world/galleries';
 import { playSecurityCue } from '../engine/audio';
 
-export type Panel = 'dashboard' | 'map' | 'radio' | 'artifact' | 'camera' | 'grande-camera' | 'cctv' | 'heist-report' | 'pause' | 'report' | null;
+export type Panel = 'dashboard' | 'map' | 'radio' | 'artifact' | 'camera' | 'grande-camera' | 'cctv' | 'heist-report' | 'level2-report' | 'pause' | 'report' | null;
 
 interface GameState {
   screen: 'login' | 'menu' | 'game';

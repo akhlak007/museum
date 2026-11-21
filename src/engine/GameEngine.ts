@@ -49,7 +49,7 @@ export class GameEngine {
   private accumulator = 0;
   private actors;
   private nightMode = false;
-  private flashlight = new THREE.SpotLight(0xfff5dd, 3.8, 32, Math.PI / 6.5, 0.4, 1.2);
+  private flashlight = new THREE.SpotLight(0xfff6e4, 5.2, 40, Math.PI / 4.6, 0.45, 1.1);
   private flashlightTarget = new THREE.Object3D();
 
   constructor(private container: HTMLElement, private callbacks: GameCallbacks) {
@@ -226,13 +226,21 @@ export class GameEngine {
     this.callbacks.onPosition(worldToMap(this.player.position.x, this.player.position.z, this.player.rotation.y), nearArtwork, nearIncident);
 
     if (this.nightMode) {
-      this.flashlight.position.copy(this.player.position).add(new THREE.Vector3(0, 1.4, 0));
+      this.flashlight.position.copy(this.player.position).add(new THREE.Vector3(0, 1.45, 0));
+      const forwardX = Math.sin(this.followYaw);
+      const forwardZ = Math.cos(this.followYaw);
       const lookDir = new THREE.Vector3(
-        -Math.sin(this.followYaw),
-        -Math.sin(this.cameraPitch) * 0.4,
-        -Math.cos(this.followYaw)
-      );
-      this.flashlightTarget.position.copy(this.player.position).add(lookDir.multiplyScalar(8));
+        forwardX,
+        -Math.sin(this.cameraPitch) * 0.45,
+        forwardZ
+      ).normalize();
+      this.flashlightTarget.position.copy(this.flashlight.position).addScaledVector(lookDir, 14);
+
+      // Animate clue beacon diamonds
+      this.actors.clueBeacons.forEach((b) => {
+        const d = b.group.userData.diamond as THREE.Mesh | undefined;
+        if (d) d.rotation.y += delta * 2.5;
+      });
 
       const px = this.player.position.x;
       const pz = this.player.position.z;
@@ -245,6 +253,11 @@ export class GameEngine {
       const nearClue = clues.find(c => Math.hypot(px - c.x, pz - c.z) < 3.2)?.id ?? null;
       const nearSuspect = Math.hypot(px - 104, pz - 8) < 3.8;
       this.callbacks.onHeistProximity?.(nearClue, nearSuspect);
+    }
+
+    if (this.actors.waypointBeacon.visible) {
+      const wd = this.actors.waypointBeacon.userData.diamond as THREE.Mesh | undefined;
+      if (wd) wd.rotation.y += delta * 2.8;
     }
   }
 
@@ -337,10 +350,18 @@ export class GameEngine {
     this.nightMode = isNight;
     this.flashlight.visible = isNight;
     if (isNight) {
-      this.actors.hemiLight.intensity = 0.08;
-      this.actors.keyLight.intensity = 0.05;
-      this.actors.ceilingLights.forEach((l) => { l.intensity = 1.2; });
-      this.scene.fog = new THREE.Fog('#040a14', 16, 42);
+      this.actors.hemiLight.intensity = 0.22;
+      this.actors.hemiLight.color.set('#4a6e98');
+      this.actors.hemiLight.groundColor.set('#111824');
+      this.actors.keyLight.intensity = 0.12;
+      this.actors.ceilingLights.forEach((l) => {
+        l.intensity = 3.6;
+        l.color.set('#5b8ecc');
+      });
+      this.actors.skylight.color.set('#0a1626');
+      this.actors.skylight.emissive.set('#0d2138');
+      this.actors.skylight.emissiveIntensity = 0.18;
+      this.scene.fog = new THREE.Fog('#040a14', 18, 52);
       this.scene.background = new THREE.Color('#040a14');
       this.actors.galleryVisitors.forEach((v) => { v.person.visible = false; });
       this.actors.suspect.visible = true;
@@ -348,19 +369,44 @@ export class GameEngine {
       this.actors.emptyFrameBacking.visible = true;
     } else {
       this.actors.hemiLight.intensity = 1.65;
+      this.actors.hemiLight.color.set('#c8dcff');
+      this.actors.hemiLight.groundColor.set('#5b3824');
       this.actors.keyLight.intensity = 2.3;
-      this.actors.ceilingLights.forEach((l) => { l.intensity = 18; });
+      this.actors.ceilingLights.forEach((l) => {
+        l.intensity = 18;
+        l.color.set('#ffdca5');
+      });
+      this.actors.skylight.color.set('#fff5e0');
+      this.actors.skylight.emissive.set('#ffeed0');
+      this.actors.skylight.emissiveIntensity = 0.6;
       this.scene.fog = new THREE.Fog('#101a27', 32, 66);
       this.scene.background = new THREE.Color('#101a27');
       this.actors.galleryVisitors.forEach((v) => { v.person.visible = true; });
       this.actors.suspect.visible = false;
       this.actors.ferronnierePainting.visible = true;
       this.actors.emptyFrameBacking.visible = false;
+      this.actors.clueBeacons.forEach((b) => { b.group.visible = false; });
+    }
+  }
+
+  setClueBeacons(discoveredIds: string[]) {
+    if (!this.nightMode) return;
+    this.actors.clueBeacons.forEach((b) => {
+      b.group.visible = !discoveredIds.includes(b.id);
+    });
+  }
+
+  setWaypointBeacon(pos: [number, number, number] | null) {
+    if (pos) {
+      this.actors.waypointBeacon.position.set(...pos);
+      this.actors.waypointBeacon.visible = true;
+    } else {
+      this.actors.waypointBeacon.visible = false;
     }
   }
 
   setFlashlight(enabled: boolean) {
-    this.flashlight.intensity = enabled ? 3.8 : 0;
+    this.flashlight.intensity = enabled ? 5.2 : 0;
   }
 
   dispose() {

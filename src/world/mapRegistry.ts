@@ -15,6 +15,8 @@ export function worldToMap(x: number, z: number, yaw: number): PlayerMapPosition
     yaw,
     floor: gallery?.floor ?? galleries[0].floor,
     galleryId: gallery?.id,
+    worldX: x,
+    worldZ: z,
   };
 }
 

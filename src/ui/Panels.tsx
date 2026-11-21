@@ -201,6 +201,44 @@ export function HeistReportPanel() {
   );
 }
 
+export function Level2ReportPanel() {
+  const setPanel = useGameStore((state) => state.setPanel);
+  const score = useGameStore((state) => state.score);
+  const cloudStatus = useGameStore((state) => state.cloudStatus);
+  return (
+    <PanelShell title="Level 2 Certified — Full Denon Route Secured" onClose={() => setPanel(null)}>
+      <div className="report-grade">
+        <span>SECURITY CLEARANCE</span>
+        <strong style={{ color: '#45c870', fontSize: '2.5rem' }}>LEVEL 2 PASSED</strong>
+        <b>{(score > 0 ? score : 1200).toLocaleString()} points</b>
+      </div>
+      <div className="report-row">
+        <span>Moving Visitor Interception</span>
+        <b>Verified on Scene (Hold F Contact)</b>
+      </div>
+      <div className="report-row">
+        <span>Square Room (Salon Carré) Check</span>
+        <b>Verified & Logged</b>
+      </div>
+      <div className="report-row">
+        <span>Daru Staircase Check (Winged Victory)</span>
+        <b>Verified & Logged</b>
+      </div>
+      <div className="report-row">
+        <span>Level 0 Lower Landing (Candelabrum)</span>
+        <b>Verified & Logged</b>
+      </div>
+      <div className="report-row">
+        <span>Persistence</span>
+        <b>{cloudStatus === 'connected' ? 'Saved to Supabase' : cloudStatus === 'saving' ? 'Saving…' : 'Demo memory'}</b>
+      </div>
+      <button className="primary-button" onClick={() => setPanel(null)}>
+        Continue Exploration
+      </button>
+    </PanelShell>
+  );
+}
+
 function VerificationClock({ detectedAt }: { detectedAt: string }) {
   const deadline = Date.parse(detectedAt) + PRIORITY_VERIFICATION_SECONDS * 1000;
   const [now, setNow] = useState(Date.now);

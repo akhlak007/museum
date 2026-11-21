@@ -8,6 +8,7 @@ import {
   FullMapPanel,
   HeistReportPanel,
   IncidentPanel,
+  Level2ReportPanel,
   PausePanel,
   RadioPanel,
   ReportPanel,
@@ -29,7 +30,8 @@ export function GameScreen() {
   const resolveHeistGame = useGameStore((state) => state.resolveHeistGame);
   const tickHeist = useGameStore((state) => state.tickHeist);
 
-  const galleryId = useGameStore((state) => state.player.galleryId);
+  const player = useGameStore((state) => state.player);
+  const galleryId = player.galleryId;
   const gallery = galleryById(galleryId);
   const explored = useGameStore((state) => state.explored);
   const inspections = useGameStore((state) => state.inspections);
@@ -49,11 +51,81 @@ export function GameScreen() {
   const [nearClueId, setNearClueId] = useState<string | null>(null);
   const [nearSuspect, setNearSuspect] = useState(false);
 
+  const check1Done = inspections.some((title) => title === 'Virgin and Child Enthroned with Six Angels' || title === 'Saint Francis Receiving the Stigmata');
+  const check2Done = inspections.includes('Winged Victory of Samothrace');
+  const check3Done = explored.includes('daru-lower') && inspections.includes('Roman Marble Candelabrum');
+  const allRouteChecksDone = check1Done && check2Done && check3Done;
+  const visitorResolved = incident?.stage === 'resolved';
+
   const routeChecks = [
-    { label: 'Inspect a painting in the Square Room', done: inspections.some((title) => title === 'Virgin and Child Enthroned with Six Angels' || title === 'Saint Francis Receiving the Stigmata') },
-    { label: 'Inspect Winged Victory at the top of the stairs', done: inspections.includes('Winged Victory of Samothrace') },
-    { label: 'Check the candelabrum on Level 0', done: explored.includes('daru-lower') && inspections.includes('Roman Marble Candelabrum') },
+    { label: 'Inspect a painting in the Square Room (708)', done: check1Done },
+    { label: 'Inspect Winged Victory at Daru Staircase (703)', done: check2Done },
+    { label: 'Check the candelabrum on Level 0 Landing', done: check3Done },
   ];
+
+  // Active step & target beacon calculation for Level 2 & Night Shift
+  let activeTargetPos: [number, number, number] | null = null;
+  let activeStepTitle = '';
+  let activeStepDetail = '';
+
+  if (gameMode === 'priority') {
+    if (!visitorResolved) {
+      if (incident?.stage === 'detected') {
+        activeStepTitle = 'Pursue Moving Visitor in Room 711';
+        activeStepDetail = 'Sprint close (under 2.5m) and hold [F] to make contact.';
+        activeTargetPos = [-2.8, 0, -10.1];
+      } else if (incident?.stage === 'responding') {
+        activeStepTitle = 'Visitor Stopped — Guard G-12 En Route';
+        activeStepDetail = 'Wait for Guard G-12 to arrive, then click Log Safe Response in panel.';
+        activeTargetPos = [-2.8, 0, -10.1];
+      } else {
+        activeStepTitle = 'Submit Visitor Incident Report';
+        activeStepDetail = 'Click Resolve & Submit Report in the incident card.';
+        activeTargetPos = [-2.8, 0, -10.1];
+      }
+    } else if (!check1Done) {
+      activeStepTitle = 'Checkpoint 1: Square Room (Salon Carré · 708)';
+      activeStepDetail = 'Walk east through Grand Gallery. Approach & press [E] on Cimabue or Giotto.';
+      activeTargetPos = [69, 0, -1];
+    } else if (!check2Done) {
+      activeStepTitle = 'Checkpoint 2: Daru Staircase (703)';
+      activeStepDetail = 'Walk through the far door. Approach & press [E] on Winged Victory.';
+      activeTargetPos = [86.5, 0, 5.15];
+    } else if (!check3Done) {
+      activeStepTitle = 'Checkpoint 3: Level 0 Lower Landing';
+      activeStepDetail = 'Descend the grand marble stairs. Press [E] on the Roman Marble Candelabrum.';
+      activeTargetPos = [107.8, -4.2, 5];
+    } else {
+      activeStepTitle = 'Level 2 Complete — Denon Route Certified';
+      activeStepDetail = 'All route checks verified and visitor incident safely resolved.';
+    }
+  } else if (gameMode === 'night-heist' && heistState) {
+    const clue1 = heistState.clues.find((c) => c.id === 'clue-711-decoy');
+    const clue2 = heistState.clues.find((c) => c.id === 'clue-710-frame');
+    if (clue1 && !clue1.discovered) {
+      activeStepTitle = 'Investigate Decoy Wire in Room 711';
+      activeStepDetail = 'Follow the cyan beacon near the baseboard and press [E] to examine wire.';
+      activeTargetPos = [4.1, 0, -13.45];
+    } else if (clue2 && !clue2.discovered) {
+      activeStepTitle = 'Check Missing Portrait in Room 710';
+      activeStepDetail = 'Head through the east door to Grand Gallery. Follow amber beacon to empty frame.';
+      activeTargetPos = [36, 0, 1.35];
+    } else if (heistState.cctvReviewedRooms.length < 2) {
+      activeStepTitle = 'Review CCTV Surveillance Feeds';
+      activeStepDetail = 'Press [C] to open the CCTV console and review camera feeds across rooms.';
+    } else if (heistState.stage !== 'intercepted' && heistState.stage !== 'resolved') {
+      activeStepTitle = 'Intercept Thief at Level 0 Landing';
+      activeStepDetail = 'Rush down Daru stairs to Level 0. Corner suspect behind Candelabrum and press [E]!';
+      activeTargetPos = [104, -4.2, 8];
+    } else {
+      activeStepTitle = 'Heist Foiled — File Investigation Report';
+      activeStepDetail = 'Click File Heist Report to submit your investigation log.';
+    }
+  }
+
+  const distanceToTarget = activeTargetPos && player.worldX !== undefined && player.worldZ !== undefined
+    ? Math.round(Math.hypot(player.worldX - activeTargetPos[0], player.worldZ - activeTargetPos[2]))
+    : null;
 
   const passageHint = galleryId === '711' ? 'Grand Gallery · East passage'
     : galleryId === '710' ? 'Square Room · Far end of the Grand Gallery'
@@ -136,6 +208,20 @@ export function GameScreen() {
       engineRef.current?.setFlashlight(heistState.flashlightOn);
     }
   }, [gameMode, heistState?.flashlightOn]);
+
+  useEffect(() => {
+    engineRef.current?.setWaypointBeacon(activeTargetPos);
+  }, [activeTargetPos?.[0], activeTargetPos?.[1], activeTargetPos?.[2]]);
+
+  useEffect(() => {
+    if (gameMode === 'night-heist' && heistState) {
+      const discovered = heistState.clues.filter((c) => c.discovered).map((c) => c.id);
+      if (heistState.stage === 'intercepted' || heistState.stage === 'resolved') {
+        discovered.push('suspect');
+      }
+      engineRef.current?.setClueBeacons(discovered);
+    }
+  }, [gameMode, heistState?.clues, heistState?.stage]);
 
   useEffect(() => {
     if (incident?.stage === 'detected') engineRef.current?.setIncidentRoom(incident.roomId);
@@ -222,7 +308,9 @@ export function GameScreen() {
           <span className="mini-mark">{gameMode === 'night-heist' ? '🌙' : '△'}</span>
           <div>
             <strong>LOUVRE GUARDIAN</strong>
-            <small>{gameMode === 'night-heist' ? 'AFTER-HOURS INVESTIGATION' : 'SECURITY OPERATIONS'}</small>
+            <small>
+              {gameMode === 'night-heist' ? 'AFTER-HOURS INVESTIGATION' : gameMode === 'priority' ? 'LEVEL 2 · PRIORITY ROUTE PATROL' : 'LEVEL 1 · GUARD PATROL'}
+            </small>
           </div>
         </div>
         <div className="hud-location">
@@ -234,6 +322,20 @@ export function GameScreen() {
           {cloudStatus === 'connected' ? 'Cloud connected' : cloudStatus === 'demo' ? 'Demo · not saved' : 'Sync failed'}
         </div>
       </header>
+
+      {/* Active Waypoint HUD Banner */}
+      {activeStepTitle && !panel && (
+        <div className="active-waypoint-hud">
+          <span className="waypoint-pin">📍</span>
+          <div className="waypoint-info">
+            <div className="waypoint-header">
+              <strong>{activeStepTitle}</strong>
+              {distanceToTarget !== null && <span className="waypoint-dist">{distanceToTarget}m away</span>}
+            </div>
+            <small>{activeStepDetail}</small>
+          </div>
+        </div>
+      )}
 
       {gameMode === 'night-heist' && heistState ? (
         <section className="objectives heist-objectives">
@@ -270,9 +372,29 @@ export function GameScreen() {
             <span>MISSION OBJECTIVES</span>
             <b>{priorityShift ? `${routeChecks.filter((item) => item.done).length} / 3 route checks` : incident?.stage === 'resolved' ? '3 / 3' : incident ? '1 / 3' : '0 / 3'}</b>
           </div>
-          {priorityShift ? routeChecks.map((item) => <p key={item.label} className={item.done ? 'done' : ''}>{item.label}</p>) : <p className={incident ? 'done' : ''}>Patrol the State Room</p>}
-          <p className={incident?.stage === 'resolved' ? 'done' : ''}>Resolve the visitor-rule incident</p>
-          <p className={incident?.stage === 'resolved' ? 'done' : ''}>Submit the security report</p>
+          {priorityShift ? (
+            <>
+              {routeChecks.map((item) => (
+                <p key={item.label} className={item.done ? 'done' : ''}>{item.label}</p>
+              ))}
+              <p className={incident?.stage === 'resolved' ? 'done' : ''}>Resolve moving visitor breach</p>
+              {allRouteChecksDone && visitorResolved && (
+                <button
+                  className="primary-button"
+                  style={{ marginTop: '0.65rem', width: '100%', background: 'linear-gradient(#34a853, #1e7e34)', borderColor: '#5cd67d' }}
+                  onClick={() => useGameStore.getState().setPanel('level2-report')}
+                >
+                  🎉 View Level 2 Certificate
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <p className={incident ? 'done' : ''}>Patrol the State Room</p>
+              <p className={incident?.stage === 'resolved' ? 'done' : ''}>Resolve the visitor-rule incident</p>
+              <p className={incident?.stage === 'resolved' ? 'done' : ''}>Submit the security report</p>
+            </>
+          )}
         </section>
       )}
 
@@ -327,6 +449,7 @@ export function GameScreen() {
       {panel === 'pause' && <PausePanel />}
       {panel === 'report' && <ReportPanel />}
       {panel === 'heist-report' && <HeistReportPanel />}
+      {panel === 'level2-report' && <Level2ReportPanel />}
     </main>
   );
 }

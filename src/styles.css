@@ -267,9 +267,35 @@ dt { color: #8f9da3; } dd { margin: 0; }
 .clue-tag { font-size: .62rem; font-weight: 800; letter-spacing: .12em; color: #5ca0e5; }
 .clue-text { margin: 0; font-size: .82rem; color: #d3e2ef; line-height: 1.45; }
 
+/* Active Waypoint HUD Banner */
+.active-waypoint-hud {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(7, 18, 30, 0.94);
+  border: 1px solid #486a8c;
+  border-radius: 6px;
+  padding: 0.55rem 1.1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), inset 0 0 16px rgba(72, 106, 140, 0.2);
+  max-width: min(620px, calc(100% - 32px));
+  pointer-events: none;
+}
+.waypoint-pin { font-size: 1.35rem; }
+.waypoint-info { display: flex; flex-direction: column; gap: 0.2rem; }
+.waypoint-header { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+.waypoint-header strong { font-size: 0.86rem; color: #f5f1e8; letter-spacing: 0.02em; }
+.waypoint-dist { font-size: 0.72rem; font-family: monospace; font-weight: 700; color: #fcd34d; background: #22374d; padding: 0.1rem 0.4rem; border-radius: 3px; }
+.waypoint-info small { color: #9bbad9; font-size: 0.75rem; line-height: 1.35; }
+
 @media (max-width: 760px) {
   .cctv-body { grid-template-columns: 1fr; }
   .heist-objectives { width: calc(100% - 24px); }
+  .active-waypoint-hud { top: 72px; width: calc(100% - 24px); }
 }
 
 @media (max-width: 760px) {

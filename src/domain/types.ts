@@ -51,6 +51,8 @@ export interface PlayerMapPosition {
   galleryId?: string;
   yaw: number;
   floor: number;
+  worldX?: number;
+  worldZ?: number;
 }
 
 export interface SecurityResource {

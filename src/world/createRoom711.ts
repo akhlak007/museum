@@ -170,6 +170,9 @@ export interface RoomActors {
   ferronnierePainting: THREE.Mesh;
   emptyFrameBacking: THREE.Group;
   suspect: THREE.Group;
+  skylight: THREE.MeshStandardMaterial;
+  clueBeacons: Array<{ id: string; group: THREE.Group }>;
+  waypointBeacon: THREE.Group;
 }
 
 export function createRoom711(scene: THREE.Scene): RoomActors {
@@ -372,6 +375,28 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
     scene.add(light);
     ceilingLights.push(light);
   }
+  for (const x of [30, 42, 54]) {
+    const light = new THREE.PointLight('#ffdca5', 18, 16, 2);
+    light.position.set(x, 7.2, 7.4);
+    scene.add(light);
+    ceilingLights.push(light);
+  }
+  for (const x of [68, 78]) {
+    const light = new THREE.PointLight('#ffdca5', 22, 18, 2);
+    light.position.set(x, 8.2, 7.4);
+    scene.add(light);
+    ceilingLights.push(light);
+  }
+  for (const x of [87, 95]) {
+    const light = new THREE.PointLight('#ffdca5', 18, 16, 2);
+    light.position.set(x, 6.8, 7.4);
+    scene.add(light);
+    ceilingLights.push(light);
+  }
+  const landingLight = new THREE.PointLight('#ffdca5', 18, 16, 2);
+  landingLight.position.set(106, 0.5, 7.4);
+  scene.add(landingLight);
+  ceilingLights.push(landingLight);
 
   const grandeCamera = camera.clone();
   const [cameraX, cameraZ] = galleryLocations['710'].camera;
@@ -384,7 +409,12 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
   scene.add(grandeSensor);
   const timber = new THREE.MeshStandardMaterial({map: parquetTexture()});
   const plaster = new THREE.MeshStandardMaterial({color: '#884d43'});
-  const skylight = new THREE.MeshBasicMaterial({color: '#fff2d5'});
+  const skylight = new THREE.MeshStandardMaterial({
+    color: '#fff5e0',
+    roughness: 0.8,
+    emissive: '#ffeed0',
+    emissiveIntensity: 0.6,
+  });
   function bayPart(size: [number,number,number], at: [number,number,number], material: THREE.Material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
     mesh.position.set(...at);
@@ -526,6 +556,42 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
   suspect.visible = false;
   scene.add(suspect);
 
+  function createBeacon(color: string) {
+    const group = new THREE.Group();
+    const diamond = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.24),
+      new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.95, roughness: 0.2 })
+    );
+    diamond.position.y = 1.1;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.28, 0.38, 16),
+      new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.05;
+    group.add(diamond, ring);
+    group.userData.diamond = diamond;
+    scene.add(group);
+    return group;
+  }
+
+  const clueBeacons = [
+    { id: 'clue-711-decoy', group: createBeacon('#38bdf8') },
+    { id: 'clue-710-frame', group: createBeacon('#f59e0b') },
+    { id: 'clue-708-blindspot', group: createBeacon('#a855f7') },
+    { id: 'clue-703-stairs', group: createBeacon('#f43f5e') },
+    { id: 'suspect', group: createBeacon('#ef4444') },
+  ];
+  clueBeacons[0].group.position.set(4.1, 0, -13.45);
+  clueBeacons[1].group.position.set(36, 0, 1.35);
+  clueBeacons[2].group.position.set(65, 0, 7.4);
+  clueBeacons[3].group.position.set(88, 0, 7.4);
+  clueBeacons[4].group.position.set(104, -4.2, 8);
+  clueBeacons.forEach(b => { b.group.visible = false; });
+
+  const waypointBeacon = createBeacon('#fbbf24');
+  waypointBeacon.visible = false;
+
   return {
     guard,
     visitor,
@@ -538,6 +604,9 @@ export function createRoom711(scene: THREE.Scene): RoomActors {
     ferronnierePainting: ferronniereFrameObj.painting,
     emptyFrameBacking,
     suspect,
+    skylight,
+    clueBeacons,
+    waypointBeacon,
   };
 }
 
