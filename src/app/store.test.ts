@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { advanceIncident, createBarrierIncident } from '../domain/incidentMachine';
+import { advanceIncident, createBarrierIncident, createInventoryIncident } from '../domain/incidentMachine';
 import { useGameStore } from './store';
 
 function respondingIncident() {
@@ -21,5 +21,34 @@ describe('security response invariants', () => {
     useGameStore.getState().guardArrived();
     useGameStore.getState().logIncident();
     expect(useGameStore.getState().incident?.stage).toBe('logged');
+  });
+});
+
+describe('inventory case protocol', () => {
+  it.each(['clerical', 'conservation'] as const)('requires evidence and records the %s outcome', async cause => {
+    useGameStore.setState({
+      incident: createInventoryIncident(cause), guardStatus: 'available',
+      nearArtwork: 'La Belle Ferronnière', history: [],
+    });
+    const store = useGameStore.getState();
+    store.reviewInventoryRegister();
+    store.classifyInventory(cause);
+    expect(useGameStore.getState().incident?.stage).toBe('detected');
+
+    store.logArtifactInspection();
+    store.reviewInventoryRegister();
+    store.classifyInventory(cause === 'clerical' ? 'conservation' : 'clerical');
+    expect(useGameStore.getState().incident?.stage).toBe('verified');
+    store.classifyInventory(cause);
+    store.respondToInventory();
+    store.logIncident();
+    await store.resolveIncident();
+    await store.resolveIncident();
+
+    const state = useGameStore.getState();
+    expect(state.history).toHaveLength(1);
+    expect(state.incident?.stage).toBe('resolved');
+    expect(state.guardStatus).toBe('available');
+    expect(state.score).toBe(850);
   });
 });

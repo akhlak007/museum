@@ -47,8 +47,8 @@ export function MuseumMap() {
               <li className="key-player">You · {currentGallery ? `Room ${currentGallery.id}, ${currentGallery.name}` : 'Between galleries'}</li>
               <li className="key-artifact">Mona Lisa · {incident?.roomId === '711' ? artifactStatus.replaceAll('_', ' ') : 'safe'}</li>
               <li className="key-artifact">The Wedding Feast at Cana</li>
-              <li className="key-artifact">La Belle Ferronnière</li>
-              <li className="key-artifact">Saint John the Baptist · {incident?.roomId === '710' ? artifactStatus : 'safe'}</li>
+              <li className="key-artifact">La Belle Ferronnière · {incident?.inventory ? artifactStatus : 'safe'}</li>
+              <li className="key-artifact">Saint John the Baptist · {incident?.roomId === '710' && !incident.inventory ? artifactStatus : 'safe'}</li>
               {showSecurity && <>
                 <li className="key-guard">Guard G-12 · {guardStatus}</li>
                 <li className="key-camera">Camera C-711 · {cameraStatus}</li>

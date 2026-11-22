@@ -90,9 +90,9 @@ export function GameScreen() {
   }, []);
 
   useEffect(() => {
-    if (incident?.stage === 'detected') engineRef.current?.setIncidentRoom(incident.roomId);
+    if (incident?.stage === 'detected' && !incident.inventory) engineRef.current?.setIncidentRoom(incident.roomId);
     if (useGameStore.getState().guardStatus === 'responding') engineRef.current?.setGuardResponding();
-  }, [incident?.stage, incident?.id]);
+  }, [incident?.stage, incident?.id, incident?.inventory]);
 
   useEffect(() => {
     engineRef.current?.setPaused(panel === 'pause');
@@ -100,8 +100,8 @@ export function GameScreen() {
   }, [panel]);
 
   useEffect(() => {
-    engineRef.current?.setFieldEncounter(priorityShift && incident?.stage === 'detected', panel === null);
-  }, [priorityShift, incident?.stage, panel]);
+    engineRef.current?.setFieldEncounter(priorityShift && incident?.stage === 'detected' && !incident.inventory, panel === null);
+  }, [priorityShift, incident?.stage, incident?.inventory, panel]);
 
   useEffect(() => {
     engineRef.current?.setResourceStates(cameraStatus === 'online', sensorStatus === 'online', grandeCamera === 'online', grandeSensor === 'online');
@@ -154,13 +154,13 @@ export function GameScreen() {
       <section className="objectives">
         <div><span>MISSION OBJECTIVES</span><b>{priorityShift ? `${routeChecks.filter(item => item.done).length} / 3 route checks` : incident?.stage === 'resolved' ? '3 / 3' : incident ? '1 / 3' : '0 / 3'}</b></div>
         {priorityShift ? routeChecks.map(item => <p key={item.label} className={item.done ? 'done' : ''}>{item.label}</p>) : <p className={incident ? 'done' : ''}>Patrol the State Room</p>}
-        <p className={incident?.stage === 'resolved' ? 'done' : ''}>Resolve the visitor-rule incident</p>
+        <p className={incident?.stage === 'resolved' ? 'done' : ''}>{incident?.inventory ? 'Reconcile the Room 710 inventory' : 'Resolve the visitor-rule incident'}</p>
         <p className={incident?.stage === 'resolved' ? 'done' : ''}>Submit the security report</p>
       </section>
 
       <IncidentPanel />
       {nearArtwork && !panel && <div className="interaction-prompt"><kbd>E</kbd><span>Inspect {nearArtwork}</span></div>}
-      {!panel && gallery && <p className="passage-hint">{passageHint}</p>}
+      {!panel && gallery && (!incident?.inventory || incident.stage === 'resolved') && <p className="passage-hint">{passageHint}</p>}
       <div className="control-hints"><span><kbd>Tab</kbd> Dashboard</span><span><kbd>M</kbd> Security Map</span><span><kbd>R</kbd> Radio</span></div>
       <Minimap />
       {error && <div className="error-toast">{error}</div>}

@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
-test('demo user can complete the Room 711 security mission', async ({ page }) => {
+test('demo user can complete Room 711 and reconcile the Room 710 inventory in the same patrol', async ({ page }) => {
+  test.setTimeout(420_000);
+  await page.setViewportSize({ width: 960, height: 600 });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Louvre Guardian' })).toBeVisible();
   await expect(page.getByText('Development demo mode')).toBeVisible();
@@ -49,6 +51,48 @@ test('demo user can complete the Room 711 security mission', async ({ page }) =>
   await expect(page.getByText('1,000 points')).toBeVisible();
   await page.screenshot({ path: 'output/screenshots/mission-report.png' });
   await page.getByRole('button', { name: 'Continue patrol' }).click();
+
+  const moveUntil = patrolMovement(page);
+  await moveUntil('s', 'y', 58.5, true);
+  await moveUntil('d', 'x', 135, true);
+  await moveUntil('w', 'y', 52, false);
+  await page.keyboard.press('e');
+  await expect(page.getByRole('heading', { name: 'Saint John the Baptist' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close panel' }).click();
+  for (const name of ['Verify on scene', 'Classify visitor violation', 'Dispatch Guard G-12', 'Log safe response', 'Resolve and submit report', 'Continue patrol']) {
+    await page.getByRole('button', { name }).click({ timeout: 60_000 });
+  }
+  await page.keyboard.press('Tab');
+  await page.getByRole('button', { name: 'Open Room 710 inventory case' }).click();
+  const register = page.getByRole('button', { name: 'Review movement register' });
+  await expect(register).toBeDisabled();
+  await page.keyboard.press('m');
+  await expect(page.locator('.large-map .map-incident')).toContainText('Inventory discrepancy');
+  await page.getByRole('button', { name: 'Close panel' }).click();
+
+  await moveUntil('a', 'x', 118, false);
+  await expect(page.getByText('Inspect La Belle Ferronnière', { exact: true })).toBeVisible();
+  await page.keyboard.press('e');
+  await expect(page.getByRole('heading', { name: 'La Belle Ferronnière' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close panel' }).click();
+  await register.click();
+  const evidence = await page.locator('.incident-card p').textContent();
+  const clerical = evidence?.includes('duplicate location entry');
+  const duplicate = page.getByRole('button', { name: 'Duplicate register entry' });
+  const conservation = page.getByRole('button', { name: 'Unrecorded conservation return' });
+  await (clerical ? conservation : duplicate).click();
+  await expect(page.getByRole('status')).toContainText('conflicts with the evidence');
+  await page.screenshot({ path: 'output/screenshots/inventory-evidence.png' });
+  await (clerical ? duplicate : conservation).click();
+  await page.getByRole('button', { name: 'Reconcile inventory register' }).click();
+  await page.getByRole('button', { name: 'Log evidence and response' }).click();
+  await page.getByRole('button', { name: 'Resolve and submit report' }).click();
+  await expect(page.getByRole('heading', { name: 'Mission Report — Inventory Discrepancy' })).toBeVisible();
+  await expect(page.getByText('850 points')).toBeVisible();
+  await page.screenshot({ path: 'output/screenshots/inventory-report.png' });
+  await page.getByRole('button', { name: 'Continue patrol' }).click();
+  await page.keyboard.press('Tab');
+  await expect(page.getByText('Room 710 · Inventory discrepancy · resolved')).toBeVisible();
 });
 
 test('demo user can inspect the Mona Lisa presentation', async ({ page }) => {

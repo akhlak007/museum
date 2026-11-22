@@ -15,14 +15,15 @@ export function RoomMap({ floor, viewBox, showSecurity = true }: { floor: number
   const grandeCamera = useGameStore(state => state.grandeCamera);
   const grandeSensor = useGameStore(state => state.grandeSensor);
   const monaStatus = incident?.roomId === '711' ? artifactStatus : 'safe';
-  const johnStatus = incident?.roomId === '710' ? artifactStatus : 'safe';
+  const johnStatus = incident?.roomId === '710' && !incident.inventory ? artifactStatus : 'safe';
   const grande = galleryLocations['710'];
-  const location = field?.position ?? (incident?.roomId === '710' ? projectToMap(...grande.incident) : markers.incident);
   const camera = projectToMap(...grande.camera);
   const sensor = projectToMap(...grande.sensor);
   const art = projectToMap(...grande.artwork);
   const wedding = projectToMap(...galleryLocations['711'].wedding);
   const ferronniere = projectToMap(...ferronnierePosition);
+  const location = incident?.inventory ? ferronniere
+    : field?.position ?? (incident?.roomId === '710' ? projectToMap(...grande.incident) : markers.incident);
   const rooms = galleries.filter(gallery => gallery.floor === floor);
   const canSeePlayer = player.floor === floor;
   return (

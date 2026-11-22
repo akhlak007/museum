@@ -24,6 +24,8 @@ export function DashboardPanel() {
   const grandeCamera = useGameStore(state => state.grandeCamera);
   const grandeSensor = useGameStore(state => state.grandeSensor);
   const history = useGameStore(state => state.history);
+  const openInventoryCase = useGameStore(state => state.openInventoryCase);
+  const inventoryAvailable = incident?.stage === 'resolved' && history.some(record => record.roomId === '710') && !history.some(record => record.inventory);
   const toggleResource = useGameStore((state) => state.toggleResource);
   return (
     <PanelShell title="Security Dashboard" wide onClose={() => setPanel(null)}>
@@ -38,6 +40,7 @@ export function DashboardPanel() {
       <div className="dashboard-columns">
         <div>
           <h3>Incident activity</h3>{history.map(record => <p key={record.id}>Room {record.roomId} · {record.title} · resolved</p>)}
+          {inventoryAvailable && <button className="secondary-button" onClick={openInventoryCase}>Open Room 710 inventory case</button>}
           {incident ? incident.actions.map((action) => <div className="timeline-row" key={`${action.stage}-${action.at}`}><b>{action.stage}</b><span>{action.note}</span></div>) : <p className="empty-state">No incidents recorded during this shift.</p>}
         </div>
         <div>
@@ -85,7 +88,8 @@ export function ArtifactPanel() {
   const ferronniere = artwork === 'La Belle Ferronnière';
   const grande = saintJohn || ferronniere;
   const wedding = artwork === 'The Wedding Feast at Cana';
-  const artifactStatus = useGameStore(state => state.incident?.roomId === (grande ? '710' : '711') && !wedding && !ferronniere ? state.artifactStatus : 'safe');
+  const artifactStatus = useGameStore(state => state.incident?.roomId === (grande ? '710' : '711') && !wedding &&
+    Boolean(state.incident.inventory) === ferronniere ? state.artifactStatus : 'safe');
   return (
     <PanelShell title="Artifact Inspection" onClose={() => setPanel(null)}>
       <div className="artifact-layout">
@@ -150,10 +154,11 @@ export function PausePanel() {
 }
 
 export function ReportPanel() {
+  const inventoryOutcome = useGameStore(state => state.incident?.inventory ? state.incident.actions.at(-1)?.note : undefined);
   const setPanel = useGameStore((state) => state.setPanel);
   const score = useGameStore((state) => state.score);
   const cloudStatus = useGameStore((state) => state.cloudStatus);
-  return <PanelShell title="Mission Report — Operation Quiet Gallery" onClose={() => setPanel(null)}><div className="report-grade"><span>GRADE</span><strong>{score >= 900 ? 'A' : score >= 700 ? 'B' : 'C'}</strong><b>{score.toLocaleString()} points</b></div><div className="report-row"><span>Protocol completed</span><b>6 / 6</b></div><div className="report-row"><span>Visitor safety</span><b>Protected</b></div><div className="report-row"><span>Artifact secured</span><b>Safe</b></div><div className="report-row"><span>Persistence</span><b>{cloudStatus === 'connected' ? 'Saved to Supabase' : cloudStatus === 'saving' ? 'Saving…' : cloudStatus === 'error' ? 'Save failed' : 'Demo memory only'}</b></div><button className="primary-button" onClick={() => setPanel(null)}>Continue patrol</button></PanelShell>;
+  return <PanelShell title={inventoryOutcome ? 'Mission Report — Inventory Discrepancy' : 'Mission Report — Operation Quiet Gallery'} onClose={() => setPanel(null)}><div className="report-grade"><span>GRADE</span><strong>{score >= 900 ? 'A' : score >= 700 ? 'B' : 'C'}</strong><b>{score.toLocaleString()} points</b></div><div className="report-row"><span>Protocol completed</span><b>6 / 6</b></div>{inventoryOutcome ? <p>{inventoryOutcome}</p> : <div className="report-row"><span>Visitor safety</span><b>Protected</b></div>}<div className="report-row"><span>Artifact secured</span><b>Safe</b></div><div className="report-row"><span>Persistence</span><b>{cloudStatus === 'connected' ? 'Saved to Supabase' : cloudStatus === 'saving' ? 'Saving…' : cloudStatus === 'error' ? 'Save failed' : 'Demo memory only'}</b></div><button className="primary-button" onClick={() => setPanel(null)}>Continue patrol</button></PanelShell>;
 }
 
 function VerificationClock({ detectedAt }: { detectedAt: string }) {
@@ -177,10 +182,31 @@ export function IncidentPanel() {
   const dispatch = useGameStore((state) => state.dispatchGuard);
   const log = useGameStore((state) => state.logIncident);
   const resolve = useGameStore((state) => state.resolveIncident);
+  const reviewRegister = useGameStore(state => state.reviewInventoryRegister);
+  const classifyInventory = useGameStore(state => state.classifyInventory);
+  const respondToInventory = useGameStore(state => state.respondToInventory);
   const guardStatus = useGameStore((state) => state.guardStatus);
   const priorityShift = useGameStore(state => state.priorityShift);
   const field = useGameStore(state => state.fieldContact);
   if (!incident || incident.stage === 'resolved') return null;
+  if (incident.inventory) {
+    const evidence = incident.actions.find(action => action.stage === 'verified')?.note;
+    return (
+      <aside className="incident-card">
+        <div className="incident-title"><span>{incident.title}</span><b>{incident.stage.toUpperCase()}</b></div>
+        <p>{evidence ?? incident.description}</p>
+        {incident.stage === 'detected' && <button disabled={!incident.inventory.displayChecked} onClick={reviewRegister}>Review movement register</button>}
+        {incident.stage === 'verified' && <>
+          {incident.inventory.errors > 0 && <p role="status">That classification conflicts with the evidence. Review the register and try again.</p>}
+          <button onClick={() => classifyInventory('clerical')}>Duplicate register entry</button>
+          <button onClick={() => classifyInventory('conservation')}>Unrecorded conservation return</button>
+        </>}
+        {incident.stage === 'classified' && <button onClick={respondToInventory}>Reconcile inventory register</button>}
+        {incident.stage === 'responding' && <button onClick={log}>Log evidence and response</button>}
+        {incident.stage === 'logged' && <button onClick={resolve}>Resolve and submit report</button>}
+      </aside>
+    );
+  }
   return (
     <aside className="incident-card">
       <div className="incident-title"><span>SECURITY INCIDENT</span><b>{incident.stage.toUpperCase()}</b></div>

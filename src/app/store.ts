@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { advanceIncident, calculateMissionScore, createBarrierIncident } from '../domain/incidentMachine';
+import { advanceIncident, calculateMissionScore, createBarrierIncident, createInventoryIncident } from '../domain/incidentMachine';
 import type { ArtifactStatus, Incident, PlayerMapPosition, Role } from '../domain/types';
 import { persistence } from '../data/persistence';
 import { ROOM_711_MARKERS, worldToMap } from '../world/mapRegistry';
@@ -51,6 +51,10 @@ interface GameState {
   raiseGrandeAlert(): void;
   setFieldContact(position: PlayerMapPosition, progress: number, inRange: boolean): void;
   completeFieldContact(): void;
+  openInventoryCase(): void;
+  reviewInventoryRegister(): void;
+  classifyInventory(cause: NonNullable<Incident['inventory']>['cause']): void;
+  respondToInventory(): void;
 }
 
 export const PRIORITY_VERIFICATION_SECONDS = 30;
@@ -105,7 +109,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setFieldContact: (position, progress, inRange) => set({ fieldContact: { position, progress, inRange } }),
   completeFieldContact: () => {
     const { priorityShift, incident, fieldContact } = get();
-    if (!priorityShift || incident?.stage !== 'detected' || !fieldContact || fieldContact.progress < 1) return;
+    if (!priorityShift || incident?.inventory || incident?.stage !== 'detected' || !fieldContact || fieldContact.progress < 1) return;
     const verified = advanceIncident(incident, 'verified', 'Agent made contact with the moving visitor on scene.');
     const classified = advanceIncident(verified, 'classified', 'Visitor stopped and confirmed they had crossed the marked boundary.');
     set({
@@ -119,17 +123,17 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   verifyIncident: () => {
     const incident = get().incident;
-    if (!incident || !get().nearIncident) return;
+    if (incident?.stage !== 'detected' || incident.inventory || !get().nearIncident) return;
     set({ incident: advanceIncident(incident, 'verified', 'Agent verified a visitor inside the protective boundary; visitor appears calm and safe.') });
   },
   classifyIncident: () => {
     const incident = get().incident;
-    if (!incident) return;
+    if (incident?.stage !== 'verified' || incident.inventory) return;
     set({ incident: advanceIncident(incident, 'classified', 'Classified as a medium-severity visitor-rule violation; no artwork contact observed.') });
   },
   dispatchGuard: () => {
     const incident = get().incident;
-    if (!incident) return;
+    if (incident?.stage !== 'classified' || incident.inventory) return;
     set({
       incident: advanceIncident(incident, 'responding', 'Guard G-12 dispatched to calmly guide the visitor behind the barrier.'),
       guardStatus: 'responding',
@@ -139,13 +143,18 @@ export const useGameStore = create<GameState>((set, get) => ({
   setGuardMapPosition: (guardMapPosition) => set({ guardMapPosition }),
   logIncident: () => {
     const incident = get().incident;
-    if (!incident || get().guardStatus !== 'on-scene') return;
-    set({ incident: advanceIncident(incident, 'logged', 'Action timeline and fictional sensor event recorded for the shift report.'), guardStatus: 'on-scene' });
+    if (incident?.stage !== 'responding' || (!incident.inventory && get().guardStatus !== 'on-scene')) return;
+    set({ incident: advanceIncident(incident, 'logged', incident.inventory
+      ? 'Display observation, movement register and chosen response recorded for the shift.'
+      : 'Action timeline and fictional sensor event recorded for the shift report.') });
   },
   async resolveIncident() {
     const incident = get().incident;
-    if (!incident) return;
-    const resolved = advanceIncident(incident, 'resolved', 'Visitor safely returned to the public area; artwork checked and secure.');
+    if (incident?.stage !== 'logged') return;
+    const resolved = advanceIncident(incident, 'resolved', incident.inventory?.cause === 'conservation'
+      ? 'Authorized return from conservation recorded. Artwork verified on display.'
+      : incident.inventory ? 'Duplicate register entry reconciled. Artwork verified on display.'
+        : 'Visitor safely returned to the public area; artwork checked and secure.');
     const score = calculateMissionScore(resolved, get().priorityShift ? PRIORITY_VERIFICATION_SECONDS : undefined);
     set({ history: [...get().history,resolved], incident: resolved, artifactStatus: 'safe', guardStatus: 'available', score, cloudStatus: persistence.mode === 'supabase' ? 'saving' : 'demo' });
     try {
@@ -174,6 +183,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       inspections: state.inspections.includes(nearArtwork) ? state.inspections : [...state.inspections, nearArtwork],
     }));
     if (!priorityShift && nearArtwork === 'Saint John the Baptist') get().raiseGrandeAlert();
+    const incident = get().incident;
+    if (incident?.stage === 'detected' && incident.inventory && nearArtwork === 'La Belle Ferronnière') {
+      set({ incident: { ...incident, inventory: { ...incident.inventory, displayChecked: true } } });
+    }
   },
   raiseGrandeAlert: () => {
     const state = get();
@@ -186,5 +199,40 @@ export const useGameStore = create<GameState>((set, get) => ({
     incident.description = 'A visitor crossed the marked display boundary at Saint John the Baptist. Verify on scene.';
     incident.actions[0].note = 'Grande Galerie perimeter reported a training alert.';
     set({ pendingIncident: state.incident?.stage === 'detected' ? state.incident : null, incident, artifactStatus: 'warning', guardStatus: 'available', fieldContact: null });
+  },
+  openInventoryCase: () => {
+    const state = get();
+    if (!state.role || state.incident?.stage !== 'resolved' || state.pendingIncident ||
+        !state.history.some(record => record.roomId === '710' && !record.inventory) ||
+        state.history.some(record => record.inventory)) return;
+    set({ incident: createInventoryIncident(Math.random() < 0.5 ? 'clerical' : 'conservation'),
+      panel: null, fieldContact: null, artifactStatus: 'warning' });
+  },
+  reviewInventoryRegister: () => {
+    const incident = get().incident;
+    if (incident?.stage !== 'detected' || !incident.inventory?.displayChecked) return;
+    set({ incident: advanceIncident(
+      { ...incident, inventory: { ...incident.inventory, registerChecked: true } },
+      'verified',
+      incident.inventory.cause === 'clerical'
+        ? 'Artwork present. Register contains a duplicate location entry and no approved movement.'
+        : 'Artwork present. The return receipt is signed, but the register still lists the conservation location.',
+    ) });
+  },
+  classifyInventory: (cause) => {
+    const incident = get().incident;
+    if (incident?.stage !== 'verified' || !incident.inventory?.registerChecked) return;
+    if (incident.inventory.cause !== cause) {
+      set({ incident: { ...incident, inventory: { ...incident.inventory, errors: incident.inventory.errors + 1 } } });
+      return;
+    }
+    set({ incident: advanceIncident(incident, 'classified', cause === 'clerical'
+      ? 'Classified as a duplicate entry.' : 'Classified as an unrecorded return from conservation.') });
+  },
+  respondToInventory: () => {
+    const incident = get().incident;
+    if (incident?.stage !== 'classified' || !incident.inventory) return;
+    set({ incident: advanceIncident(incident, 'responding', incident.inventory.cause === 'clerical'
+      ? 'Corrected the duplicate location entry.' : 'Recorded the approved return to the gallery.') });
   },
 }));

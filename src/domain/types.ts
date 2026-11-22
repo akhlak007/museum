@@ -10,6 +10,7 @@ export interface Incident {
   severity: 'low' | 'medium' | 'high';
   stage: IncidentStage;
   detectedAt: string;
+  inventory?: { cause: 'clerical' | 'conservation'; displayChecked: boolean; registerChecked: boolean; errors: number };
   actions: Array<{ stage: IncidentStage; at: string; note: string }>;
 }
 
